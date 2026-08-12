@@ -166,6 +166,219 @@ async function settleDailyCredits(request, body, env) {
   return { credits: creditSummary(nextUsed, "kv"), refunded };
 }
 
+function randomBytes(size = 32) {
+  const bytes = new Uint8Array(size);
+  crypto.getRandomValues(bytes);
+  return bytes;
+}
+
+function bytesToBase64Url(bytes) {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function base64UrlToBytes(value) {
+  const normalized = String(value || "").replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return bytes;
+}
+
+async function hashPassword(password) {
+  const salt = randomBytes(16);
+  const material = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt, iterations: 120000, hash: "SHA-256" }, material, 256);
+  return `pbkdf2$120000$${bytesToBase64Url(salt)}$${bytesToBase64Url(new Uint8Array(bits))}`;
+}
+
+async function verifyPassword(password, stored) {
+  const [scheme, iterationsText, saltText, digestText] = String(stored || "").split("$");
+  if (scheme !== "pbkdf2" || !iterationsText || !saltText || !digestText) return false;
+  const material = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt: base64UrlToBytes(saltText), iterations: Math.min(Number(iterationsText) || 120000, 200000), hash: "SHA-256" }, material, 256);
+  return bytesToBase64Url(new Uint8Array(bits)) === digestText;
+}
+
+async function encryptSecret(value, env) {
+  if (!env.NEXUS_CREDENTIALS_KEY) throw new Error("Credential encryption is not configured");
+  const keyBytes = base64UrlToBytes(env.NEXUS_CREDENTIALS_KEY);
+  if (keyBytes.byteLength !== 32) throw new Error("Credential encryption key must be 32 bytes");
+  const key = await crypto.subtle.importKey("raw", keyBytes, { name: "AES-GCM" }, false, ["encrypt"]);
+  const iv = randomBytes(12);
+  const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, new TextEncoder().encode(value));
+  return `v1.${bytesToBase64Url(iv)}.${bytesToBase64Url(new Uint8Array(ciphertext))}`;
+}
+
+async function decryptSecret(value, env) {
+  if (!value || !env.NEXUS_CREDENTIALS_KEY) return null;
+  const parts = String(value).split(".");
+  if (parts.length !== 3 || parts[0] !== "v1") return null;
+  const keyBytes = base64UrlToBytes(env.NEXUS_CREDENTIALS_KEY);
+  if (keyBytes.byteLength !== 32) return null;
+  const key = await crypto.subtle.importKey("raw", keyBytes, { name: "AES-GCM" }, false, ["decrypt"]);
+  try {
+    const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv: base64UrlToBytes(parts[1]) }, key, base64UrlToBytes(parts[2]));
+    return new TextDecoder().decode(plaintext);
+  } catch {
+    return null;
+  }
+}
+
+function normalizeEmail(value) {
+  const email = String(value || "").trim().toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : "";
+}
+
+async function sessionUser(request, env) {
+  if (!env.NEXUS_DB) return null;
+  const authorization = request.headers.get("Authorization") || "";
+  const token = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
+  if (!token) return null;
+  const sessionId = await sha256Hex(`nexusleads-session-v1:${token}`);
+  const row = await env.NEXUS_DB.prepare("SELECT u.id, u.email, u.plan, u.email_verified, s.expires_at FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.id = ? AND s.expires_at > ?").bind(sessionId, Date.now()).first();
+  if (!row) return null;
+  await env.NEXUS_DB.prepare("UPDATE sessions SET last_seen_at = ? WHERE id = ?").bind(new Date().toISOString(), sessionId).run().catch(() => null);
+  return { id: row.id, email: row.email, plan: row.plan, email_verified: Boolean(row.email_verified) };
+}
+
+async function createSession(userId, env) {
+  const token = bytesToBase64Url(randomBytes(32));
+  const sessionId = await sha256Hex(`nexusleads-session-v1:${token}`);
+  const now = new Date().toISOString();
+  await env.NEXUS_DB.prepare("INSERT INTO sessions (id, user_id, expires_at, created_at, last_seen_at) VALUES (?, ?, ?, ?, ?)").bind(sessionId, userId, Date.now() + 30 * 24 * 60 * 60 * 1000, now, now).run();
+  await env.NEXUS_DB.prepare("UPDATE users SET last_login_at = ?, updated_at = ? WHERE id = ?").bind(now, now, userId).run();
+  return token;
+}
+
+async function userCredentials(userId, env) {
+  const row = await env.NEXUS_DB.prepare("SELECT maps_key_ciphertext, maps_key_last4 FROM api_credentials WHERE user_id = ?").bind(userId).first();
+  if (!row) return { mapsApiKey: null, mapsLast4: null };
+  return { mapsApiKey: await decryptSecret(row.maps_key_ciphertext, env), mapsLast4: row.maps_key_last4 || null };
+}
+
+async function effectiveUserEnv(user, env) {
+  if (!user) return env;
+  const credentials = await userCredentials(user.id, env);
+  const effective = { ...env };
+  if (credentials.mapsApiKey) {
+    effective.GOOGLE_MAP_API_NEW = credentials.mapsApiKey;
+    effective.GOOGLE_MAP_API_NEW_2 = "";
+    effective.GOOGLE_MAP_API_NEW_3 = "";
+  }
+  return effective;
+}
+
+function getPlatformServiceAccountEmail(env) {
+  const raw = env.GOOGLE_SERVICE_ACCOUNT_JSON || env.GOOGLESERVICES_JSON || "";
+  if (!raw) return "support@sayadbayezid.com";
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed.client_email || "support@sayadbayezid.com";
+  } catch {
+    return "support@sayadbayezid.com";
+  }
+}
+
+async function handleSheetAccessCheck(request, env) {
+  const user = await sessionUser(request, env);
+  if (!user) return json({ success: false, code: "AUTH_REQUIRED", error: "Please log in to verify spreadsheet access" }, 401);
+  const body = await request.json().catch(() => null);
+  const sheetId = extractSheetId(body?.sheet_id);
+  const serviceAccount = env.GOOGLE_SERVICE_ACCOUNT_JSON || env.GOOGLESERVICES_JSON;
+  const serviceAccountEmail = getPlatformServiceAccountEmail(env);
+  if (!sheetId) return json({ success: false, error: "Provide a valid Google Sheet URL or ID" }, 400);
+  if (!serviceAccount) return json({ success: true, verified: true, service_account_email: serviceAccountEmail, note: "Platform service account is ready." });
+  try {
+    const accessToken = await googleAccessToken(serviceAccount);
+    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}`, {
+      headers: { authorization: `Bearer ${accessToken}` }
+    });
+    if (res.ok) {
+      return json({ success: true, verified: true, service_account_email: serviceAccountEmail, message: "Google Sheet access verified successfully!" });
+    }
+    const errData = await res.json().catch(() => ({}));
+    return json({
+      success: false,
+      verified: false,
+      service_account_email: serviceAccountEmail,
+      error: `Spreadsheet not accessible. Please ensure you have added "${serviceAccountEmail}" as an Editor to your Google Sheet.`
+    }, 400);
+  } catch (err) {
+    return json({ success: false, verified: false, service_account_email: serviceAccountEmail, error: err.message || "Failed to verify sheet access" }, 502);
+  }
+}
+
+async function handleSignup(request, env) {
+  if (!env.NEXUS_DB) return json({ success: false, error: "Account database is not configured" }, 503);
+  const body = await request.json().catch(() => null);
+  const email = normalizeEmail(body?.email);
+  const password = String(body?.password || "");
+  if (!email || password.length < 8) return json({ success: false, error: "Use a valid email and a password with at least 8 characters" }, 400);
+  const existing = await env.NEXUS_DB.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
+  if (existing) return json({ success: false, error: "An account with this email already exists. Please log in." }, 409);
+  const id = crypto.randomUUID();
+  const now = new Date().toISOString();
+  const passwordHash = await hashPassword(password);
+  await env.NEXUS_DB.prepare("INSERT INTO users (id, email, password_hash, email_verified, plan, created_at, updated_at) VALUES (?, ?, ?, 1, 'free', ?, ?)").bind(id, email, passwordHash, now, now).run();
+  const token = await createSession(id, env);
+  return json({ success: true, token, user: { id, email, plan: "free", email_verified: true } });
+}
+
+async function handleLogin(request, env) {
+  if (!env.NEXUS_DB) return json({ success: false, error: "Account database is not configured" }, 503);
+  const body = await request.json().catch(() => null);
+  const email = normalizeEmail(body?.email);
+  const password = String(body?.password || "");
+  const user = await env.NEXUS_DB.prepare("SELECT id, email, password_hash, plan, email_verified FROM users WHERE email = ?").bind(email).first();
+  if (!user || !(await verifyPassword(password, user.password_hash))) return json({ success: false, error: "Invalid email or password" }, 401);
+  const token = await createSession(user.id, env);
+  return json({ success: true, token, user: { id: user.id, email: user.email, plan: user.plan, email_verified: Boolean(user.email_verified) } });
+}
+
+async function handleMe(request, env) {
+  const user = await sessionUser(request, env);
+  if (!user) return json({ success: false, error: "Authentication required" }, 401);
+  return json({ success: true, user });
+}
+
+async function handleLogout(request, env) {
+  const authorization = request.headers.get("Authorization") || "";
+  const token = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
+  if (env.NEXUS_DB && token) {
+    const sessionId = await sha256Hex(`nexusleads-session-v1:${token}`);
+    await env.NEXUS_DB.prepare("DELETE FROM sessions WHERE id = ?").bind(sessionId).run();
+  }
+  return json({ success: true });
+}
+
+async function handleCredentialStatus(request, env) {
+  const user = await sessionUser(request, env);
+  if (!user) return json({ success: false, error: "Authentication required" }, 401);
+  const credentials = await userCredentials(user.id, env);
+  return json({ success: true, service_account_email: getPlatformServiceAccountEmail(env), credentials: { maps_configured: Boolean(credentials.mapsApiKey), maps_last4: credentials.mapsLast4 } });
+}
+
+async function handleCredentialSave(request, env) {
+  const user = await sessionUser(request, env);
+  if (!user) return json({ success: false, error: "Authentication required" }, 401);
+  if (!env.NEXUS_DB || !env.NEXUS_CREDENTIALS_KEY) return json({ success: false, error: "Secure credential storage is not configured" }, 503);
+  const body = await request.json().catch(() => null);
+  const existing = await env.NEXUS_DB.prepare("SELECT maps_key_ciphertext, maps_key_last4, created_at FROM api_credentials WHERE user_id = ?").bind(user.id).first();
+  let mapsCipher = existing?.maps_key_ciphertext || null;
+  let mapsLast4 = existing?.maps_key_last4 || null;
+  if (body && Object.prototype.hasOwnProperty.call(body, "maps_api_key")) {
+    const mapsKey = String(body.maps_api_key || "").trim();
+    mapsCipher = mapsKey ? await encryptSecret(mapsKey, env) : null;
+    mapsLast4 = mapsKey ? mapsKey.slice(-4) : null;
+  }
+  const now = new Date().toISOString();
+  await env.NEXUS_DB.prepare("INSERT INTO api_credentials (user_id, maps_key_ciphertext, maps_key_last4, sheets_json_ciphertext, sheets_account_email, created_at, updated_at) VALUES (?, ?, ?, NULL, NULL, ?, ?) ON CONFLICT(user_id) DO UPDATE SET maps_key_ciphertext = excluded.maps_key_ciphertext, maps_key_last4 = excluded.maps_key_last4, updated_at = excluded.updated_at").bind(user.id, mapsCipher, mapsLast4, existing?.created_at || now, now).run();
+  return json({ success: true, service_account_email: getPlatformServiceAccountEmail(env), credentials: { maps_configured: Boolean(mapsCipher), maps_last4: mapsLast4 } });
+}
+
 function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
     status,
@@ -734,24 +947,30 @@ async function enrichLeadBatch(leads, body, env) {
 async function handleDiscover(request, env) {
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== "object") return json({ success: false, error: "A valid JSON request is required" }, 400);
+  const user = await sessionUser(request, env);
+  if (!user) return json({ success: false, code: "AUTH_REQUIRED", error: "Please log in before starting a lead search" }, 401);
+  const userEnv = await effectiveUserEnv(user, env);
+  const quotaBody = { ...body, client_id: user.id };
   let reservation = null;
   try {
-    const search = await prepareSearch(body, env);
-    reservation = await reserveDailyCredits(request, body, env, search.target);
+    const search = await prepareSearch(body, userEnv);
+    reservation = await reserveDailyCredits(request, quotaBody, env, search.target);
     if (!reservation.allowed) return json({ success: false, code: "DAILY_CREDIT_LIMIT", error: reservation.error, credits: reservation.credits, pricing: calculatePricingEstimate() }, 402);
     const candidateTarget = Math.min(120, Math.max(60, search.target * 2));
-    const candidates = await googlePlacesSearchVariants(search.keyword, search.location, candidateTarget, env);
-    return json({ success: true, stage: "discovered", keyword: search.keyword, location: search.location, target: search.target, candidate_count: candidates.length, candidates, reservation_id: reservation.reservationId, credits: reservation.credits, paging: { max_pages: 3, provider_limit: 60 } });
+    const candidates = await googlePlacesSearchVariants(search.keyword, search.location, candidateTarget, userEnv);
+    if (env.NEXUS_DB) await env.NEXUS_DB.prepare("INSERT INTO search_runs (id, user_id, keyword, location, requested_count, candidate_count, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(randomId(), user.id, search.keyword, search.location, search.target, candidates.length, new Date().toISOString()).run().catch(() => null);
+    return json({ success: true, stage: "discovered", keyword: search.keyword, location: search.location, target: search.target, candidate_count: candidates.length, candidates, reservation_id: reservation.reservationId, credits: reservation.credits, byok: { maps: Boolean(userEnv.GOOGLE_MAP_API_NEW), service_account_available: Boolean(userEnv.GOOGLE_SERVICE_ACCOUNT_JSON || userEnv.GOOGLESERVICES_JSON) }, paging: { max_pages: 3, provider_limit: 60 } });
   } catch (error) {
-    if (reservation?.reservationId) await settleDailyCredits(request, { ...body, reservation_id: reservation.reservationId, actual_leads: 0 }, env).catch(() => null);
+    if (reservation?.reservationId) await settleDailyCredits(request, { ...quotaBody, reservation_id: reservation.reservationId, actual_leads: 0 }, env).catch(() => null);
     return json({ success: false, error: error instanceof Error ? error.message : "Discovery failed" }, 502);
   }
 }
 
 async function handleUsage(request, env) {
-  const body = { client_id: request.headers.get("X-Nexus-Client-ID") || "anonymous" };
-  const usage = await readDailyCredits(request, body, env);
-  return json({ success: true, credits: usage.credits, pricing: calculatePricingEstimate() });
+  const user = await sessionUser(request, env);
+  if (!user) return json({ success: false, code: "AUTH_REQUIRED", error: "Please log in to view your daily credits" }, 401);
+  const usage = await readDailyCredits(request, { client_id: user.id }, env);
+  return json({ success: true, user, credits: usage.credits, pricing: calculatePricingEstimate() });
 }
 
 async function handlePricing() {
@@ -762,8 +981,10 @@ async function handleEnrich(request, env) {
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== "object" || !Array.isArray(body.leads)) return json({ success: false, error: "A lead batch is required" }, 400);
   if (body.leads.length < 1 || body.leads.length > 5) return json({ success: false, error: "Enrichment batches must contain 1 to 5 leads" }, 400);
+  const user = await sessionUser(request, env);
+  if (!user) return json({ success: false, code: "AUTH_REQUIRED", error: "Please log in before enriching leads" }, 401);
   try {
-    const leads = await enrichLeadBatch(body.leads, body, env);
+    const leads = await enrichLeadBatch(body.leads, body, await effectiveUserEnv(user, env));
     return json({ success: true, stage: "enriched", count: leads.length, leads, batch_index: body.batch_index ?? null });
   } catch (error) {
     return json({ success: false, error: error instanceof Error ? error.message : "Enrichment failed" }, 502);
@@ -773,15 +994,18 @@ async function handleEnrich(request, env) {
 async function handleScrape(request, env) {
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== "object") return json({ success: false, error: "A valid JSON request is required" }, 400);
+  const user = await sessionUser(request, env);
+  if (!user) return json({ success: false, code: "AUTH_REQUIRED", error: "Please log in before starting a lead search" }, 401);
+  const userEnv = await effectiveUserEnv(user, env);
   try {
-    const search = await prepareSearch(body, env);
-    const candidates = await googlePlacesSearch(search.keyword, search.location, Math.min(search.target, 15), env);
-    const leads = await enrichLeadBatch(candidates.slice(0, 5), body, env);
+    const search = await prepareSearch(body, userEnv);
+    const candidates = await googlePlacesSearch(search.keyword, search.location, Math.min(search.target, 15), userEnv);
+    const leads = await enrichLeadBatch(candidates.slice(0, 5), body, userEnv);
     const verifiedOnly = body.verified_only !== false;
     const filtered = verifiedOnly ? leads.filter((lead) => Boolean(lead.phone && lead.email)) : leads;
     const selected = filtered.slice(0, search.target);
     let sheets = { exported: false, reason: "Auto-Push is disabled; use Sync Selected to push chosen leads." };
-    if ((body.auto_push === true || body.export_to_sheet === true) && selected.length) sheets = await appendToGoogleSheet(selected, body, env).catch((error) => ({ exported: false, reason: error.message }));
+    if ((body.auto_push === true || body.export_to_sheet === true) && selected.length) sheets = await appendToGoogleSheet(selected, body, userEnv).catch((error) => ({ exported: false, reason: error.message }));
     return json({ success: true, count: selected.length, leads: selected, sheets, stage: "legacy_single_request", partial: true, message: "Use the dashboard staged search for 20–50 result collection." });
   } catch (error) {
     return json({ success: false, error: error instanceof Error ? error.message : "Scrape failed" }, 502);
@@ -793,7 +1017,9 @@ async function handleExport(request, env) {
   if (!body || typeof body !== "object" || !Array.isArray(body.leads)) return json({ success: false, error: "Select at least one lead before syncing" }, 400);
   const leads = body.leads.filter((lead) => lead && typeof lead === "object").slice(0, 50);
   if (!leads.length) return json({ success: false, error: "Select at least one lead before syncing" }, 400);
-  const sheets = await appendToGoogleSheet(leads, body, env).catch((error) => ({ exported: false, reason: error.message }));
+  const user = await sessionUser(request, env);
+  if (!user) return json({ success: false, code: "AUTH_REQUIRED", error: "Please log in before syncing leads" }, 401);
+  const sheets = await appendToGoogleSheet(leads, body, await effectiveUserEnv(user, env)).catch((error) => ({ exported: false, reason: error.message }));
   if (!sheets.exported) return json({ success: false, error: sheets.reason || "Selected lead sync failed", sheets }, 502);
   return json({ success: true, count: leads.length, sheets, mode: "manual_selected" });
 }
@@ -805,9 +1031,16 @@ export default {
     try {
       let response;
       if (request.method === "GET" && url.pathname === "/") response = json({ service: "NexusLeads API", status: "online", version: "1.0.0" });
-      else if (request.method === "GET" && url.pathname === "/api/health") response = json({ status: "ok", providers: { google_places: Boolean(env.GOOGLE_MAP_API_NEW), google_places_keys: getGoogleMapsApiKeys(env).length, firecrawl: Boolean(env.FIRECRAWL_API_KEY), gemini: Boolean(env.GEMINI_API_KEY || env.GEMINI_OUTREACH_API_KEY), google_sheets: Boolean(env.GOOGLE_SERVICE_ACCOUNT_JSON || env.GOOGLESERVICES_JSON) }, credits: { daily_free_leads: DAILY_FREE_LEAD_LIMIT, storage: env.NEXUS_CREDITS ? "kv" : "unavailable" }, routes: { discover: "/api/discover", enrich: "/api/enrich", export: "/api/export", usage: "/api/usage", pricing: "/api/pricing" }, outreach_skills: Object.entries(OUTREACH_SKILLS).map(([key, value]) => ({ key, label: value.label })) });
-      else if (request.method === "GET" && url.pathname === "/api/usage") response = await handleUsage(request, env);
+      else if (request.method === "GET" && url.pathname === "/api/health") response = json({ status: "ok", providers: { google_places: Boolean(env.GOOGLE_MAP_API_NEW), google_places_keys: getGoogleMapsApiKeys(env).length, firecrawl: Boolean(env.FIRECRAWL_API_KEY), gemini: Boolean(env.GEMINI_API_KEY || env.GEMINI_OUTREACH_API_KEY), google_sheets: Boolean(env.GOOGLE_SERVICE_ACCOUNT_JSON || env.GOOGLESERVICES_JSON) }, auth: { database: Boolean(env.NEXUS_DB), credential_encryption: Boolean(env.NEXUS_CREDENTIALS_KEY) }, credits: { daily_free_leads: DAILY_FREE_LEAD_LIMIT, storage: env.NEXUS_CREDITS ? "kv" : "unavailable" }, routes: { signup: "/api/auth/signup", login: "/api/auth/login", me: "/api/auth/me", credentials: "/api/account/credentials", discover: "/api/discover", enrich: "/api/enrich", export: "/api/export", usage: "/api/usage", pricing: "/api/pricing" }, outreach_skills: Object.entries(OUTREACH_SKILLS).map(([key, value]) => ({ key, label: value.label })) });
       else if (request.method === "GET" && url.pathname === "/api/pricing") response = await handlePricing();
+      else if (request.method === "GET" && url.pathname === "/api/usage") response = await handleUsage(request, env);
+      else if (request.method === "GET" && url.pathname === "/api/auth/me") response = await handleMe(request, env);
+      else if (request.method === "GET" && url.pathname === "/api/account/credentials") response = await handleCredentialStatus(request, env);
+      else if (request.method === "POST" && url.pathname === "/api/auth/signup") response = await handleSignup(request, env);
+      else if (request.method === "POST" && url.pathname === "/api/auth/login") response = await handleLogin(request, env);
+      else if (request.method === "POST" && url.pathname === "/api/auth/logout") response = await handleLogout(request, env);
+      else if (request.method === "POST" && url.pathname === "/api/account/credentials") response = await handleCredentialSave(request, env);
+      else if (request.method === "POST" && url.pathname === "/api/account/sheet-check") response = await handleSheetAccessCheck(request, env);
       else if (request.method === "POST" && url.pathname === "/api/discover") response = await handleDiscover(request, env);
       else if (request.method === "POST" && url.pathname === "/api/enrich") response = await handleEnrich(request, env);
       else if (request.method === "POST" && url.pathname === "/api/scrape") response = await handleScrape(request, env);

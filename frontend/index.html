@@ -24,16 +24,25 @@
                 <span class="text-xl font-bold bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">NexusLeads</span>
             </div>
             <div class="flex items-center space-x-3">
+                <template x-if="currentUser">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-xs text-slate-300 hidden md:inline" x-text="currentUser.email"></span>
+                        <button @click="logout" class="px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">Log Out</button>
+                    </div>
+                </template>
+                <template x-if="!currentUser">
+                    <div class="flex items-center space-x-2">
+                        <button @click="showAuthModal = true; authMode = 'login'" class="px-3 py-1.5 rounded-full text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition">Log In</button>
+                        <button @click="showAuthModal = true; authMode = 'signup'" class="px-3 py-1.5 rounded-full text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-white transition">Sign Up</button>
+                    </div>
+                </template>
                 <button @click="showPricingModal = true" class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition">
                     <i class="fa-solid fa-bolt mr-1.5 text-amber-300"></i>
-                    <span x-text="credits.used + ' / ' + credits.limit + ' Daily Leads'"></span>
+                    <span x-text="credits.used + ' / ' + credits.limit + ' Leads'"></span>
                 </button>
                 <button @click="showByokModal = true" class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition">
-                    <i class="fa-solid fa-key mr-1.5"></i> BYOK Config
+                    <i class="fa-solid fa-key mr-1.5"></i> Maps BYOK
                 </button>
-                <span class="hidden sm:inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400 mr-2 animate-ping"></span> Edge API Ready
-                </span>
             </div>
         </div>
     </header>
@@ -182,15 +191,26 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Google Sheet URL / ID</label>
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400">Google Sheet URL / ID</label>
+                        <button type="button" @click="checkSheetAccess" :disabled="sheetChecking" class="text-xs text-cyan-400 hover:text-cyan-300 underline font-medium">
+                            <span x-text="sheetChecking ? 'Checking...' : 'Check Sheet Access'"></span>
+                        </button>
+                    </div>
                     <div class="relative">
                         <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
                             <i class="fa-solid fa-link"></i>
                         </span>
-                            <input type="text" x-model="sheetId" @input="saveSheetConfig()" placeholder="https://docs.google.com/spreadsheets/d/..."
+                        <input type="text" x-model="sheetId" @input="saveSheetConfig()" placeholder="https://docs.google.com/spreadsheets/d/..."
                             class="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
                     </div>
-                    <p class="text-xs text-slate-500 mt-1">One spreadsheet, two clean tabs: <strong class="text-cyan-300">Leads</strong> for verified business data and <strong class="text-violet-300">Outreach</strong> for contacts and AI drafts.</p>
+                    <div class="mt-2 text-xs text-slate-400 bg-slate-950/80 p-3 rounded-xl border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                        <div>
+                            <span>Share your sheet with Editor:</span>
+                            <strong class="text-cyan-300 ml-1">support@sayadbayezid.com</strong>
+                        </div>
+                        <button type="button" @click="copyText('support@sayadbayezid.com')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs transition"><i class="fa-solid fa-copy mr-1"></i> Copy Email</button>
+                    </div>
                 </div>
 
                 <div class="sm:col-span-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-2">
@@ -358,35 +378,59 @@
         </div>
     </div>
 
-    <!-- BYOK Config Modal -->
+    <!-- BYOK Config Modal (Google Maps Only) -->
     <div x-show="showByokModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4" style="display: none;">
         <div @click.away="showByokModal = false" class="bg-slate-900 border border-indigo-500/30 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative overflow-hidden">
             <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center space-x-2 text-indigo-400 font-bold text-lg">
                     <i class="fa-solid fa-key"></i>
-                    <span>Secure BYOK Configuration</span>
+                    <span>Google Maps BYOK Configuration</span>
                 </div>
                 <button @click="showByokModal = false" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <div class="space-y-4 text-sm text-slate-300">
-                <p class="text-xs text-slate-400">Bring your own API keys to bypass managed billing. Your keys are auto-masked in local storage and sent securely to your Cloudflare backend only.</p>
+                <p class="text-xs text-slate-400">Bring your own Google Maps API Key to bypass platform limits. Your key is stored securely with AES-256 encryption on Cloudflare.</p>
                 <div>
                     <label class="block text-xs font-semibold text-slate-300 mb-1">Google Maps API Key (New)</label>
-                    <input type="password" x-model="byok.maps" placeholder="AIzaSy..." class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-indigo-500">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-300 mb-1">Firecrawl API Key</label>
-                    <input type="password" x-model="byok.firecrawl" placeholder="fc-..." class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-indigo-500">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-300 mb-1">Gemini API Key</label>
-                    <input type="password" x-model="byok.gemini" placeholder="AIzaSy..." class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-indigo-500">
+                    <input type="password" x-model="byokMapsKey" placeholder="AIzaSy..." class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-indigo-500">
                 </div>
             </div>
             <div class="mt-6 flex items-center justify-end space-x-3">
                 <button @click="showByokModal = false" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg transition">Cancel</button>
-                <button @click="saveByokConfig" class="px-5 py-2 bg-gradient-to-r from-indigo-600 to-cyan-500 text-white text-xs font-bold rounded-lg shadow-lg shadow-indigo-500/25 transition">Save & Securely Mask</button>
+                <button @click="saveMapsByok" class="px-5 py-2 bg-gradient-to-r from-indigo-600 to-cyan-500 text-white text-xs font-bold rounded-lg shadow-lg shadow-indigo-500/25 transition">Save Google Maps Key</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Auth Modal (Login / Signup) -->
+    <div x-show="showAuthModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4" style="display: none;">
+        <div @click.away="showAuthModal = false" class="bg-slate-900 border border-cyan-500/30 rounded-2xl max-w-md w-full p-6 shadow-2xl relative overflow-hidden">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center space-x-2 text-cyan-400 font-bold text-lg">
+                    <i class="fa-solid fa-user-lock"></i>
+                    <span x-text="authMode === 'login' ? 'Log In to NexusLeads' : 'Create Account'"></span>
+                </div>
+                <button @click="showAuthModal = false" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <form @submit.prevent="submitAuth" class="space-y-4 text-sm">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Email Address</label>
+                    <input type="email" x-model="authEmail" required placeholder="you@domain.com" class="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-cyan-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Password (min 8 chars)</label>
+                    <input type="password" x-model="authPassword" required placeholder="••••••••" class="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-cyan-500">
+                </div>
+                <div x-show="authError" x-text="authError" class="text-xs text-rose-400 bg-rose-500/10 p-2.5 rounded border border-rose-500/20"></div>
+                <div class="mt-6 flex items-center justify-between">
+                    <button type="button" @click="authMode = authMode === 'login' ? 'signup' : 'login'" class="text-xs text-cyan-400 hover:underline">
+                        <span x-text="authMode === 'login' ? 'Need an account? Sign up' : 'Have an account? Log in'"></span>
+                    </button>
+                    <button type="submit" :disabled="authLoading" class="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-indigo-600 text-white text-xs font-bold rounded-lg shadow-lg hover:shadow-cyan-500/20 transition disabled:opacity-50">
+                        <span x-text="authLoading ? 'Please wait...' : (authMode === 'login' ? 'Log In' : 'Create Account')"></span>
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -407,8 +451,17 @@
                 manualPushLoading: false,
                 showPricingModal: false,
                 showByokModal: false,
+                showAuthModal: false,
+                authMode: 'login',
+                authEmail: '',
+                authPassword: '',
+                authError: '',
+                authLoading: false,
+                currentUser: null,
+                authToken: localStorage.getItem('nexusleads-token') || '',
+                sheetChecking: false,
+                byokMapsKey: '',
                 credits: { used: 0, limit: 100, remaining: 100 },
-                byok: { maps: '', firecrawl: '', gemini: '' },
                 clientId: '',
                 leads: [],
                 message: '',
@@ -418,12 +471,19 @@
                 metrics: { found: 0, verified: 0, emails: 0, sheet: 'Waiting' },
                 apiBase: (document.querySelector('meta[name="nexus-api-base"]')?.content || window.NEXUS_API_BASE || 'http://localhost:8787').replace(/\/$/, ''),
                 async postJson(path, payload) {
+                    const headers = { 'Content-Type': 'application/json', 'X-Nexus-Client-ID': this.clientId };
+                    if (this.authToken) headers['Authorization'] = 'Bearer ' + this.authToken;
                     const response = await fetch(this.apiBase + path, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'X-Nexus-Client-ID': this.clientId },
+                        headers,
                         body: JSON.stringify(payload)
                     });
                     const data = await response.json().catch(() => ({}));
+                    if (response.status === 401 || data.code === 'AUTH_REQUIRED') {
+                        this.showAuthModal = true;
+                        this.authMode = 'login';
+                        throw new Error('Please log in to your NexusLeads account.');
+                    }
                     if (!response.ok) {
                         if (data.code === 'DAILY_CREDIT_LIMIT' || response.status === 402) {
                             this.showPricingModal = true;
@@ -520,16 +580,123 @@
                         localStorage.setItem('nexusleads-client-id', cid);
                     }
                     this.clientId = cid;
+                    if (this.authToken) {
+                        try {
+                            const meRes = await fetch(this.apiBase + '/api/auth/me', {
+                                headers: { 'Authorization': 'Bearer ' + this.authToken }
+                            });
+                            const meData = await meRes.json();
+                            if (meData.success && meData.user) {
+                                this.currentUser = meData.user;
+                            } else {
+                                this.authToken = '';
+                                localStorage.removeItem('nexusleads-token');
+                            }
+                        } catch {
+                            this.authToken = '';
+                        }
+                    }
                     try {
-                        const res = await fetch(this.apiBase + '/api/usage', {
-                            headers: { 'X-Nexus-Client-ID': this.clientId }
-                        });
+                        const headers = { 'X-Nexus-Client-ID': this.clientId };
+                        if (this.authToken) headers['Authorization'] = 'Bearer ' + this.authToken;
+                        const res = await fetch(this.apiBase + '/api/usage', { headers });
                         const data = await res.json();
                         if (data.success && data.credits) {
                             this.credits = data.credits;
+                            if (data.user) this.currentUser = data.user;
                         }
                     } catch (e) {
                         console.warn('Could not load daily credits', e);
+                    }
+                },
+                async submitAuth() {
+                    this.authLoading = true;
+                    this.authError = '';
+                    const endpoint = this.authMode === 'login' ? '/api/auth/login' : '/api/auth/signup';
+                    try {
+                        const res = await fetch(this.apiBase + endpoint, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email: this.authEmail, password: this.authPassword })
+                        });
+                        const data = await res.json();
+                        if (!res.ok || !data.success) throw new Error(data.error || 'Authentication failed.');
+                        this.authToken = data.token;
+                        localStorage.setItem('nexusleads-token', data.token);
+                        this.currentUser = data.user;
+                        this.showAuthModal = false;
+                        this.authPassword = '';
+                        this.message = 'Successfully logged in as ' + data.user.email;
+                        await this.initApp();
+                    } catch (err) {
+                        this.authError = err.message;
+                    } finally {
+                        this.authLoading = false;
+                    }
+                },
+                async logout() {
+                    try {
+                        if (this.authToken) {
+                            await fetch(this.apiBase + '/api/auth/logout', {
+                                method: 'POST',
+                                headers: { 'Authorization': 'Bearer ' + this.authToken }
+                            });
+                        }
+                    } catch {}
+                    this.authToken = '';
+                    this.currentUser = null;
+                    localStorage.removeItem('nexusleads-token');
+                    this.message = 'Logged out successfully.';
+                },
+                async checkSheetAccess() {
+                    if (!this.sheetId.trim()) {
+                        alert('Please enter a Google Sheet URL or ID first.');
+                        return;
+                    }
+                    this.sheetChecking = true;
+                    try {
+                        const headers = { 'Content-Type': 'application/json', 'X-Nexus-Client-ID': this.clientId };
+                        if (this.authToken) headers['Authorization'] = 'Bearer ' + this.authToken;
+                        const res = await fetch(this.apiBase + '/api/account/sheet-check', {
+                            method: 'POST',
+                            headers,
+                            body: JSON.stringify({ sheet_id: this.sheetId })
+                        });
+                        const data = await res.json();
+                        if (res.ok && data.verified) {
+                            alert('Success! Google Sheet is accessible by support@sayadbayezid.com.');
+                        } else {
+                            alert(data.error || 'Sheet not accessible. Please add support@sayadbayezid.com as an Editor.');
+                        }
+                    } catch (err) {
+                        alert('Could not verify sheet access: ' + err.message);
+                    } finally {
+                        this.sheetChecking = false;
+                    }
+                },
+                async saveMapsByok() {
+                    if (!this.authToken) {
+                        alert('Please log in before saving BYOK keys.');
+                        this.showByokModal = false;
+                        this.showAuthModal = true;
+                        return;
+                    }
+                    try {
+                        const res = await fetch(this.apiBase + '/api/account/credentials', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.authToken },
+                            body: JSON.stringify({ maps_api_key: this.byokMapsKey })
+                        });
+                        const data = await res.json();
+                        if (res.ok && data.success) {
+                            alert('Google Maps BYOK key saved and encrypted securely!');
+                            this.showByokModal = false;
+                            this.byokMapsKey = '';
+                        } else {
+                            alert(data.error || 'Failed to save credentials.');
+                        }
+                    } catch (err) {
+                        alert('Failed to save credentials: ' + err.message);
                     }
                 },
                 loadSheetConfig() {
@@ -539,8 +706,6 @@
                         if ([20, 25, 30, 40, 50].includes(Number(saved.maxResults))) this.maxResults = Number(saved.maxResults);
                         if (typeof saved.autoPush === 'boolean') this.autoPushEnabled = saved.autoPush;
                         else if (typeof saved.enabled === 'boolean') this.autoPushEnabled = saved.enabled;
-                        const byokSaved = JSON.parse(localStorage.getItem('nexusleads-byok') || '{}');
-                        if (byokSaved.masked) this.byok = byokSaved.masked;
                     } catch (error) {
                         console.warn('Saved Google Sheets configuration could not be loaded.');
                     }
@@ -550,20 +715,6 @@
                         localStorage.setItem('nexusleads-sheet-config', JSON.stringify({ sheetId: this.sheetId, autoPush: this.autoPushEnabled, maxResults: Number(this.maxResults) }));
                     } catch (error) {
                         console.warn('Google Sheets configuration could not be saved locally.');
-                    }
-                },
-                saveByokConfig() {
-                    try {
-                        const masked = {
-                            maps: this.byok.maps ? '••••••' + this.byok.maps.slice(-4) : '',
-                            firecrawl: this.byok.firecrawl ? '••••••' + this.byok.firecrawl.slice(-4) : '',
-                            gemini: this.byok.gemini ? '••••••' + this.byok.gemini.slice(-4) : ''
-                        };
-                        localStorage.setItem('nexusleads-byok', JSON.stringify({ raw: this.byok, masked }));
-                        this.showByokModal = false;
-                        this.message = 'BYOK keys securely saved and auto-masked.';
-                    } catch (e) {
-                        alert('Could not save BYOK config.');
                     }
                 },
                 allSelected() {
