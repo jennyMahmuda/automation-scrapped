@@ -42,9 +42,10 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_OUTREACH_API_KEY: ${{ secrets.GEMINI_OUTREACH_API_KEY }}
           GEEKFLARE_API_KEY: ${{ secrets.GEEKFLARE_API_KEY }}
+          NEXUS_CREDENTIALS_KEY: ${{ secrets.NEXUS_CREDENTIALS_KEY }}
         run: |
           cd cloudflare
-          for secret in GOOGLE_MAP_API_NEW GOOGLE_MAP_API_NEW_2 GOOGLE_MAP_API_NEW_3 GOOGLE_SERVICE_ACCOUNT_JSON GOOGLE_SHEET_ID FIRECRAWL_API_KEY GEMINI_API_KEY GEMINI_OUTREACH_API_KEY GEEKFLARE_API_KEY; do
+          for secret in GOOGLE_MAP_API_NEW GOOGLE_MAP_API_NEW_2 GOOGLE_MAP_API_NEW_3 GOOGLE_SERVICE_ACCOUNT_JSON GOOGLE_SHEET_ID FIRECRAWL_API_KEY GEMINI_API_KEY GEMINI_OUTREACH_API_KEY GEEKFLARE_API_KEY NEXUS_CREDENTIALS_KEY; do
             val="${!secret}"
             if [ -n "$val" ]; then
               echo "$val" | npx wrangler secret put "$secret" --config wrangler-deploy.toml || echo "Failed to set $secret"

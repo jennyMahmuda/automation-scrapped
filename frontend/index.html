@@ -207,9 +207,9 @@
                     <div class="mt-2 text-xs text-slate-400 bg-slate-950/80 p-3 rounded-xl border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                         <div>
                             <span>Share your sheet with Editor:</span>
-                            <strong class="text-cyan-300 ml-1">support@sayadbayezid.com</strong>
+                            <strong class="text-cyan-300 ml-1" x-text="serviceAccountEmail"></strong>
                         </div>
-                        <button type="button" @click="copyText('support@sayadbayezid.com')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs transition"><i class="fa-solid fa-copy mr-1"></i> Copy Email</button>
+                        <button type="button" @click="copyText(serviceAccountEmail)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs transition"><i class="fa-solid fa-copy mr-1"></i> Copy Email</button>
                     </div>
                 </div>
 
@@ -460,6 +460,7 @@
                 currentUser: null,
                 authToken: localStorage.getItem('nexusleads-token') || '',
                 sheetChecking: false,
+                serviceAccountEmail: 'support@sayadbayezid.com',
                 byokMapsKey: '',
                 credits: { used: 0, limit: 100, remaining: 100 },
                 clientId: '',
@@ -588,6 +589,7 @@
                             const meData = await meRes.json();
                             if (meData.success && meData.user) {
                                 this.currentUser = meData.user;
+                                await this.loadAccountStatus();
                             } else {
                                 this.authToken = '';
                                 localStorage.removeItem('nexusleads-token');
@@ -609,6 +611,16 @@
                         console.warn('Could not load daily credits', e);
                     }
                 },
+                async loadAccountStatus() {
+                    if (!this.authToken) return;
+                    try {
+                        const res = await fetch(this.apiBase + '/api/account/credentials', { headers: { 'Authorization': 'Bearer ' + this.authToken } });
+                        const data = await res.json();
+                        if (res.ok && data.success) this.serviceAccountEmail = data.service_account_email || this.serviceAccountEmail;
+                    } catch (error) {
+                        console.warn('Could not load account configuration.');
+                    }
+                },
                 async submitAuth() {
                     this.authLoading = true;
                     this.authError = '';
@@ -624,6 +636,7 @@
                         this.authToken = data.token;
                         localStorage.setItem('nexusleads-token', data.token);
                         this.currentUser = data.user;
+                        await this.loadAccountStatus();
                         this.showAuthModal = false;
                         this.authPassword = '';
                         this.message = 'Successfully logged in as ' + data.user.email;
@@ -664,9 +677,11 @@
                         });
                         const data = await res.json();
                         if (res.ok && data.verified) {
-                            alert('Success! Google Sheet is accessible by support@sayadbayezid.com.');
+                            this.serviceAccountEmail = data.service_account_email || this.serviceAccountEmail;
+                            alert('Success! Google Sheet is accessible by ' + this.serviceAccountEmail + '.');
                         } else {
-                            alert(data.error || 'Sheet not accessible. Please add support@sayadbayezid.com as an Editor.');
+                            this.serviceAccountEmail = data.service_account_email || this.serviceAccountEmail;
+                            alert(data.error || 'Sheet not accessible. Please add ' + this.serviceAccountEmail + ' as an Editor.');
                         }
                     } catch (err) {
                         alert('Could not verify sheet access: ' + err.message);
