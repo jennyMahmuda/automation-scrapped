@@ -7,8 +7,9 @@ code = '''async () => {
   const boundary = `NexusLeads-${Date.now()}`;
   const metadata = {
     main_module: "worker.js",
-    compatibility_date: "2026-08-08",
-    compatibility_flags: []
+    "compatibility_date": "2026-08-08",
+    "compatibility_flags": [],
+    "workers_dev": true
   };
   const body = [
     `--${boundary}`,
