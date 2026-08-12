@@ -4,6 +4,10 @@ const SHEET_HEADERS = [
   "Category",
   "Phone",
   "Email",
+  "Facebook",
+  "Instagram",
+  "Twitter/X",
+  "LinkedIn",
   "Address",
   "Website",
   "Rating",
@@ -113,6 +117,10 @@ async function appendToGoogleSheet(leads, requestBody, env) {
     lead.category,
     lead.phone,
     lead.email,
+    lead.facebook || "",
+    lead.instagram || "",
+    lead.twitter || "",
+    lead.linkedin || "",
     lead.address,
     lead.website,
     lead.rating,
@@ -120,7 +128,7 @@ async function appendToGoogleSheet(leads, requestBody, env) {
     lead.source,
     lead.collected_at,
   ]);
-  const range = `${sheetTab}!A:J`;
+  const range = `${sheetTab}!A:N`;
   const url = new URL(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/${encodeURIComponent(range)}:append`);
   url.searchParams.set("valueInputOption", "USER_ENTERED");
   url.searchParams.set("insertDataOption", "INSERT_ROWS");
@@ -175,11 +183,46 @@ function normalizeWebsite(url) {
 
 function extractEmail(text) {
   if (!text) return null;
-  const matches = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || [];
+  const matches = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,24}/gi) || [];
   const ignored = new Set(["example@example.com", "email@example.com", "name@example.com"]);
+  const blockedTlds = new Set(["png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "ico", "pdf"]);
   const candidate = matches.map((item) => item.toLowerCase().replace(/[),.;:]+$/g, ""))
-    .find((item) => !ignored.has(item) && !item.includes("sentry") && !item.includes("wixpress"));
+    .find((item) => {
+      const [local, domain] = item.split("@");
+      const tld = domain?.split(".").pop() || "";
+      const firstLabel = domain?.split(".")[0] || "";
+      return Boolean(local && domain && domain.includes(".") && /^[a-z]{2,24}$/.test(tld))
+        && !blockedTlds.has(tld)
+        && !ignored.has(item)
+        && !item.includes("sentry")
+        && !item.includes("wixpress")
+        && !/^(?:[0-9]+x|image|img)\./i.test(`${firstLabel}.`)
+        && !/(?:^|[_-])\d{2,}x(?:[_-]|$)/i.test(local);
+    });
   return candidate || null;
+}
+
+function extractSocialLinks(text, html = "") {
+  const combined = `${text} ${html}`;
+  const getUrl = (regex) => {
+    const match = combined.match(regex);
+    if (!match) return null;
+    let url = match[0].replace(/[),.;:]+$/g, "");
+    if (!url.startsWith("http")) url = `https://${url}`;
+    try {
+      const parsed = new URL(url);
+      return parsed.toString();
+    } catch {
+      return null;
+    }
+  };
+
+  const facebook = getUrl(/https?:\/\/(?:www\.)?(?:facebook|fb)\.com\/[A-Za-z0-9._%+-]+/i);
+  const instagram = getUrl(/https?:\/\/(?:www\.)?instagram\.com\/[A-Za-z0-9._%+-]+/i);
+  const twitter = getUrl(/https?:\/\/(?:www\.)?(?:twitter|x)\.com\/[A-Za-z0-9._%+-]+/i);
+  const linkedin = getUrl(/https?:\/\/(?:www\.)?linkedin\.com\/(?:company|in)\/[A-Za-z0-9._%+-]+/i);
+
+  return { facebook, instagram, twitter, linkedin };
 }
 
 async function websiteEnrichment(website, env) {
@@ -206,10 +249,39 @@ async function websiteEnrichment(website, env) {
   }
 
   const email = extractEmail(text);
+  const socials = extractSocialLinks(text);
+  const foundSocials = Object.values(socials).filter(Boolean).length;
   return {
     email,
-    verification: email ? `${source}; public email detected` : `${source}; no public email detected`,
+    ...socials,
+    verification: email ? `${source}; public email detected; ${foundSocials} social profiles` : `${source}; no public email detected; ${foundSocials} social profiles`,
   };
+}
+
+async function parseResearchPrompt(researchPrompt, env) {
+  if (!env.GEMINI_API_KEY || !researchPrompt) return {};
+  const model = env.GEMINI_MODEL || "gemini-1.5-flash";
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`;
+  const instruction = `Convert this lead research request into strict JSON with only these keys: keyword, location, requirements. Extract a concise business category/search keyword and a city, state, country, or region. Do not invent a location. Requirements should be a short string. Return only valid JSON. Request: ${researchPrompt}`;
+  try {
+    const response = await fetchWithTimeout(endpoint, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ contents: [{ parts: [{ text: instruction }] }], generationConfig: { responseMimeType: "application/json", temperature: 0 } }),
+    }, 8000);
+    if (!response.ok) return {};
+    const data = await response.json();
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+    const cleaned = raw.replace(/^```json\s*/i, "").replace(/\s*```$/i, "").trim();
+    const parsed = JSON.parse(cleaned);
+    return {
+      keyword: typeof parsed.keyword === "string" ? parsed.keyword : "",
+      location: typeof parsed.location === "string" ? parsed.location : "",
+      requirements: typeof parsed.requirements === "string" ? parsed.requirements : "",
+    };
+  } catch {
+    return {};
+  }
 }
 
 async function parseLocationWithGemini(locationPrompt, env) {
@@ -278,7 +350,7 @@ async function googlePlacesSearch(keyword, location, maxResults, env) {
     const lead = {
       name: place.displayName?.text || "Unnamed business",
       category: (place.types || []).filter(t => !["point_of_interest", "establishment"].includes(t))[0] || keyword,
-      phone: place.internationalPhoneNumber || null,
+      phone: place.internationalPhoneNumber ? `\u200B${place.internationalPhoneNumber}` : null,
       email: null,
       address: place.formattedAddress || location,
       website,
@@ -287,8 +359,12 @@ async function googlePlacesSearch(keyword, location, maxResults, env) {
       source: "Google Places API (New)",
       collected_at: new Date().toISOString(),
     };
-    const websiteData = await websiteEnrichment(website, env).catch(() => ({ email: null, verification: "Website enrichment unavailable" }));
+    const websiteData = await websiteEnrichment(website, env).catch(() => ({ email: null, facebook: null, instagram: null, twitter: null, linkedin: null, verification: "Website enrichment unavailable" }));
     lead.email = websiteData.email;
+    lead.facebook = websiteData.facebook || null;
+    lead.instagram = websiteData.instagram || null;
+    lead.twitter = websiteData.twitter || null;
+    lead.linkedin = websiteData.linkedin || null;
     lead.verification = `${lead.verification}; ${websiteData.verification}`;
     return lead;
   }));
@@ -296,23 +372,47 @@ async function googlePlacesSearch(keyword, location, maxResults, env) {
 
 async function handleScrape(request, env) {
   const body = await request.json().catch(() => null);
-  if (!body || typeof body.keyword !== "string" || typeof body.location !== "string") return json({ success: false, error: "keyword and location are required" }, 400);
+  if (!body || typeof body !== "object") return json({ success: false, error: "A valid JSON request is required" }, 400);
 
-  const keyword = body.keyword.trim().slice(0, 100);
-  let location = body.location.trim().slice(0, 150);
-  if (!keyword || !location) return json({ success: false, error: "keyword and location cannot be empty" }, 400);
+  let keyword = typeof body.keyword === "string" ? body.keyword.trim().slice(0, 100) : "";
+  let location = typeof body.location === "string" ? body.location.trim().slice(0, 150) : "";
+  const researchPrompt = typeof body.prompt === "string" ? body.prompt.trim().slice(0, 500) : "";
+
+  if (researchPrompt) {
+    const parsed = await parseResearchPrompt(researchPrompt, env);
+    keyword = parsed.keyword || keyword;
+    location = parsed.location || location;
+  }
+  if (!keyword || !location) return json({ success: false, error: "Provide a keyword and location, or use the AI research prompt" }, 400);
 
   location = await parseLocationWithGemini(location, env);
 
-  const maxResults = Math.min(Math.max(Number(body.max_results || 20), 1), 50);
-  const leads = await googlePlacesSearch(keyword, location, maxResults, env);
+  const requestedMax = Math.min(Math.max(Number(body.max_results || 20), 1), 50);
+  const verifiedOnly = body.verified_only !== false;
+  const searchLimit = verifiedOnly ? Math.min(50, Math.max(requestedMax * 3, requestedMax)) : requestedMax;
+  const candidates = await googlePlacesSearch(keyword, location, searchLimit, env);
   if (body.enrich_with_ai && env.GEMINI_API_KEY) {
-    for (const lead of leads.slice(0, 10)) Object.assign(lead, await geminiEnrichment(lead, env));
+    for (const lead of candidates.slice(0, 10)) Object.assign(lead, await geminiEnrichment(lead, env));
   }
-  let sheets = { exported: false, reason: "Export not requested" };
-  if (body.export_to_sheet !== false) sheets = await appendToGoogleSheet(leads, body, env).catch((error) => ({ exported: false, reason: error.message }));
 
-  return json({ success: true, count: leads.length, leads, sheets, providers: { google_places: true, firecrawl: Boolean(env.FIRECRAWL_API_KEY), gemini: Boolean(env.GEMINI_API_KEY), geekflare_configured: Boolean(env.GEEKFLARE_API_KEY) } });
+  const leads = verifiedOnly
+    ? candidates.filter((lead) => Boolean(lead.phone && lead.email)).slice(0, requestedMax)
+    : candidates.slice(0, requestedMax);
+  let sheets = { exported: false, reason: "Export not requested" };
+  if (body.export_to_sheet !== false && leads.length > 0) {
+    sheets = await appendToGoogleSheet(leads, body, env).catch((error) => ({ exported: false, reason: error.message }));
+  } else if (body.export_to_sheet !== false && verifiedOnly && leads.length === 0) {
+    sheets = { exported: false, reason: "No leads matched the required public phone and email verification filter" };
+  }
+
+  return json({
+    success: true,
+    count: leads.length,
+    leads,
+    sheets,
+    filters: { verified_only: verifiedOnly, required_fields: verifiedOnly ? ["phone", "email"] : [] },
+    providers: { google_places: true, firecrawl: Boolean(env.FIRECRAWL_API_KEY), gemini: Boolean(env.GEMINI_API_KEY), geekflare_configured: Boolean(env.GEEKFLARE_API_KEY) },
+  });
 }
 
 export default {
