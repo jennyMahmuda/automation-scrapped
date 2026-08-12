@@ -354,22 +354,26 @@ async function websiteEnrichment(website, env) {
 
   let text = "";
   let source = "Website fetch";
-  if (env.FIRECRAWL_API_KEY) {
-    const response = await fetchWithTimeout("https://api.firecrawl.dev/v2/scrape", {
-      method: "POST",
-      headers: { authorization: `Bearer ${env.FIRECRAWL_API_KEY}`, "content-type": "application/json" },
-      body: JSON.stringify({ url: website, formats: ["markdown"], onlyMainContent: true }),
-    }, 15000);
-    if (response.ok) {
-      const data = await response.json();
-      text = data.data?.markdown || data.markdown || "";
-      source = "Firecrawl public website scrape";
+  try {
+    if (env.FIRECRAWL_API_KEY) {
+      const response = await fetchWithTimeout("https://api.firecrawl.dev/v2/scrape", {
+        method: "POST",
+        headers: { authorization: `Bearer ${env.FIRECRAWL_API_KEY}`, "content-type": "application/json" },
+        body: JSON.stringify({ url: website, formats: ["markdown"], onlyMainContent: true }),
+      }, 12000);
+      if (response.ok) {
+        const data = await response.json();
+        text = data.data?.markdown || data.markdown || "";
+        source = "Firecrawl public website scrape";
+      } else {
+        source = "Firecrawl website scrape unavailable";
+      }
+    } else {
+      const response = await fetchWithTimeout(website, { headers: { "user-agent": "NexusLeads/1.0 (+public-business-research)" } }, 9000);
+      if (response.ok) text = await response.text();
     }
-  }
-
-  if (!text) {
-    const response = await fetchWithTimeout(website, { headers: { "user-agent": "NexusLeads/1.0 (+public-business-research)" } }, 10000);
-    if (response.ok) text = await response.text();
+  } catch {
+    source = env.FIRECRAWL_API_KEY ? "Firecrawl website scrape unavailable" : "Website fetch unavailable";
   }
 
   const email = extractEmail(text);
@@ -523,7 +527,7 @@ async function googlePlacesSearch(keyword, location, maxResults, env) {
     },
     body: JSON.stringify({
       textQuery: `${keyword} in ${location}`,
-      maxResultCount: maxResults,
+      maxResultCount: Math.min(Math.max(maxResults, 1), 15),
     }),
   }, 12000);
 
@@ -531,7 +535,8 @@ async function googlePlacesSearch(keyword, location, maxResults, env) {
   if (!searchResponse.ok) throw new Error(`Google Places (New) search failed: ${searchData.error?.message || "unknown error"}`);
 
   const places = searchData.places || [];
-  return Promise.all(places.map(async (place) => {
+  const leads = [];
+  for (const place of places) {
     const website = normalizeWebsite(place.websiteUri);
     const lead = {
       name: place.displayName?.text || "Unnamed business",
@@ -552,8 +557,9 @@ async function googlePlacesSearch(keyword, location, maxResults, env) {
     lead.twitter = websiteData.twitter || null;
     lead.linkedin = websiteData.linkedin || null;
     lead.verification = `${lead.verification}; ${websiteData.verification}`;
-    return lead;
-  }));
+    leads.push(lead);
+  }
+  return leads;
 }
 
 async function handleScrape(request, env) {
@@ -573,12 +579,12 @@ async function handleScrape(request, env) {
 
   location = await parseLocationWithGemini(location, env);
 
-  const requestedMax = Math.min(Math.max(Number(body.max_results || 20), 1), 50);
+  const requestedMax = Math.min(Math.max(Number(body.max_results || 15), 1), 15);
   const verifiedOnly = body.verified_only !== false;
-  const searchLimit = verifiedOnly ? Math.min(50, Math.max(requestedMax * 3, requestedMax)) : requestedMax;
+  const searchLimit = Math.min(15, verifiedOnly ? Math.max(requestedMax * 2, requestedMax) : requestedMax);
   const candidates = await googlePlacesSearch(keyword, location, searchLimit, env);
   if (body.enrich_with_ai && env.GEMINI_API_KEY) {
-    for (const lead of candidates.slice(0, 10)) Object.assign(lead, await geminiEnrichment(lead, env));
+    for (const lead of candidates.slice(0, 3)) Object.assign(lead, await geminiEnrichment(lead, env));
   }
 
   let leads = verifiedOnly
@@ -590,11 +596,13 @@ async function handleScrape(request, env) {
   if (generateOutreach) {
     leads = await Promise.all(leads.map(async (lead) => ({ ...lead, ...(await outreachDraftForLead(lead, env, outreachStyle, draftType)) })));
   }
-  let sheets = { exported: false, reason: "Export not requested" };
-  if (body.export_to_sheet !== false && leads.length > 0) {
-    sheets = await appendToGoogleSheet(leads, body, env).catch((error) => ({ exported: false, reason: error.message }));
-  } else if (body.export_to_sheet !== false && verifiedOnly && leads.length === 0) {
-    sheets = { exported: false, reason: "No leads matched the required public phone and email verification filter" };
+  let sheets = { exported: false, reason: "Auto-Push is disabled; use Sync Selected to push chosen leads." };
+  if (body.auto_push === true || body.export_to_sheet === true) {
+    if (leads.length > 0) {
+      sheets = await appendToGoogleSheet(leads, body, env).catch((error) => ({ exported: false, reason: error.message }));
+    } else if (verifiedOnly) {
+      sheets = { exported: false, reason: "No leads matched the required public phone and email verification filter" };
+    }
   }
 
   return json({
@@ -603,9 +611,20 @@ async function handleScrape(request, env) {
     leads,
     sheets,
     filters: { verified_only: verifiedOnly, required_fields: verifiedOnly ? ["phone", "email"] : [] },
+    push: { auto: body.auto_push === true || body.export_to_sheet === true, manual_endpoint: "/api/export", selected_limit: 25 },
     outreach: { enabled: generateOutreach, draft_type: draftType, provider: env.GEMINI_OUTREACH_API_KEY ? "dedicated Gemini outreach key" : (env.GEMINI_API_KEY ? "shared Gemini key" : "safe fallback templates"), available_skills: Object.entries(OUTREACH_SKILLS).map(([key, value]) => ({ key, label: value.label, goal: value.goal })) },
     providers: { google_places: true, firecrawl: Boolean(env.FIRECRAWL_API_KEY), gemini: Boolean(env.GEMINI_API_KEY || env.GEMINI_OUTREACH_API_KEY), geekflare_configured: Boolean(env.GEEKFLARE_API_KEY) },
   });
+}
+
+async function handleExport(request, env) {
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== "object" || !Array.isArray(body.leads)) return json({ success: false, error: "Select at least one lead before syncing" }, 400);
+  const leads = body.leads.filter((lead) => lead && typeof lead === "object").slice(0, 25);
+  if (!leads.length) return json({ success: false, error: "Select at least one lead before syncing" }, 400);
+  const sheets = await appendToGoogleSheet(leads, body, env).catch((error) => ({ exported: false, reason: error.message }));
+  if (!sheets.exported) return json({ success: false, error: sheets.reason || "Selected lead sync failed", sheets }, 502);
+  return json({ success: true, count: leads.length, sheets, mode: "manual_selected" });
 }
 
 export default {
@@ -617,6 +636,7 @@ export default {
       if (request.method === "GET" && url.pathname === "/") response = json({ service: "NexusLeads API", status: "online", version: "1.0.0" });
       else if (request.method === "GET" && url.pathname === "/api/health") response = json({ status: "ok", providers: { google_places: Boolean(env.GOOGLE_MAP_API_NEW), firecrawl: Boolean(env.FIRECRAWL_API_KEY), gemini: Boolean(env.GEMINI_API_KEY || env.GEMINI_OUTREACH_API_KEY), google_sheets: Boolean(env.GOOGLE_SERVICE_ACCOUNT_JSON || env.GOOGLESERVICES_JSON) }, outreach_skills: Object.entries(OUTREACH_SKILLS).map(([key, value]) => ({ key, label: value.label })) });
       else if (request.method === "POST" && url.pathname === "/api/scrape") response = await handleScrape(request, env);
+      else if (request.method === "POST" && url.pathname === "/api/export") response = await handleExport(request, env);
       else response = json({ success: false, error: "Not found" }, 404);
       return withCors(response, request, env);
     } catch (error) {
