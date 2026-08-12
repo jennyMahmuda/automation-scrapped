@@ -13,7 +13,7 @@
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
     </style>
 </head>
-<body class="h-full text-slate-100 flex flex-col justify-between" x-data="leadApp()">
+<body class="h-full text-slate-100 flex flex-col justify-between" x-data="leadApp()" x-init="loadSheetConfig()">
     <!-- Header -->
     <header class="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -141,12 +141,16 @@
                         <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
                             <i class="fa-solid fa-link"></i>
                         </span>
-                        <input type="text" x-model="sheetId" placeholder="https://docs.google.com/spreadsheets/d/..." 
+                        <input type="text" x-model="sheetId" @input="saveSheetConfig()" :disabled="!sheetSyncEnabled" placeholder="https://docs.google.com/spreadsheets/d/..." 
                             class="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
                     </div>
                 </div>
 
                 <div class="sm:col-span-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-2">
+                    <label class="inline-flex items-center gap-3 text-sm text-slate-300 cursor-pointer select-none">
+                        <input type="checkbox" x-model="sheetSyncEnabled" @change="saveSheetConfig()" class="h-4 w-4 accent-cyan-500 rounded border-slate-700 bg-slate-950">
+                        <span><strong class="text-cyan-300">Google Sheets Sync</strong><span class="block text-xs text-slate-500" x-text="sheetSyncEnabled ? 'Enabled — leads will be appended' : 'Disabled — leads stay in the dashboard only'"></span></span>
+                    </label>
                     <label class="inline-flex items-center gap-3 text-sm text-slate-300 cursor-pointer select-none">
                         <input type="checkbox" x-model="verifiedOnly" class="h-4 w-4 accent-emerald-500 rounded border-slate-700 bg-slate-950">
                         <span><strong class="text-emerald-300">Verified leads only</strong><span class="block text-xs text-slate-500">Require both public phone and email</span></span>
@@ -247,6 +251,7 @@
                 keyword: '',
                 location: '',
                 sheetId: '',
+                sheetSyncEnabled: true,
                 verifiedOnly: true,
                 loading: false,
                 leads: [],
@@ -261,12 +266,17 @@
                         this.message = 'Enter an AI research prompt, or provide both a keyword and location.';
                         return;
                     }
+                    if (this.sheetSyncEnabled && !this.sheetId.trim()) {
+                        this.message = 'Google Sheets Sync is enabled. Paste a Google Sheet URL, or disable sync before starting.';
+                        return;
+                    }
                     this.loading = true;
                     this.message = '';
                     this.progress = 10;
                     this.stage = 1;
-                    this.metrics = { found: 0, verified: 0, emails: 0, sheet: 'Preparing' };
-                    this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: `Starting research for ${this.keyword} near ${this.location}.` });
+                    this.metrics = { found: 0, verified: 0, emails: 0, sheet: this.sheetSyncEnabled ? 'Preparing' : 'Disabled' };
+                    const runLabel = this.prompt.trim() || `${this.keyword} near ${this.location}`;
+                    this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: `Starting research: ${runLabel}.` });
                     try {
                         const response = await fetch(this.apiBase + '/api/scrape', {
                             method: 'POST',
@@ -280,7 +290,7 @@
                                 sheet_tab: 'Leads',
                                 max_results: 20,
                                 enrich_with_ai: true,
-                                export_to_sheet: true
+                                export_to_sheet: this.sheetSyncEnabled
                             })
                         });
                         this.progress = 65;
@@ -294,9 +304,10 @@
                             this.metrics.emails = data.leads.filter(item => item.email).length;
                             this.stage = 3;
                             this.progress = 90;
-                            this.metrics.sheet = data.sheets?.exported ? 'Synced' : 'Not configured';
-                            this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: data.sheets?.exported ? 'All leads appended to the selected Google Sheet.' : (data.sheets?.reason || 'Leads loaded without Sheet sync.') });
-                            this.message = data.sheets?.exported ? 'Leads exported to Google Sheets.' : (data.sheets?.reason || 'Leads loaded.');
+                            this.metrics.sheet = !this.sheetSyncEnabled ? 'Disabled' : (data.sheets?.exported ? 'Synced' : 'Failed');
+                            const sheetMessage = !this.sheetSyncEnabled ? 'Google Sheets sync is disabled; leads remain in the dashboard.' : (data.sheets?.exported ? 'All leads appended to the selected Google Sheet.' : (data.sheets?.reason || 'Google Sheet sync failed.'));
+                            this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: sheetMessage });
+                            this.message = sheetMessage;
                         } else {
                             this.metrics.sheet = 'Failed';
                             this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: data.error || 'Scraping failed.' });
@@ -312,6 +323,22 @@
                     } finally {
                         this.loading = false;
                         if (this.progress === 90) this.progress = 100;
+                    }
+                },
+                loadSheetConfig() {
+                    try {
+                        const saved = JSON.parse(localStorage.getItem('nexusleads-sheet-config') || '{}');
+                        if (typeof saved.sheetId === 'string') this.sheetId = saved.sheetId;
+                        if (typeof saved.enabled === 'boolean') this.sheetSyncEnabled = saved.enabled;
+                    } catch (error) {
+                        console.warn('Saved Google Sheets configuration could not be loaded.');
+                    }
+                },
+                saveSheetConfig() {
+                    try {
+                        localStorage.setItem('nexusleads-sheet-config', JSON.stringify({ sheetId: this.sheetId, enabled: this.sheetSyncEnabled }));
+                    } catch (error) {
+                        console.warn('Google Sheets configuration could not be saved locally.');
                     }
                 },
                 exportCSV() {

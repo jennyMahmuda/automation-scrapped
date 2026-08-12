@@ -4,16 +4,16 @@ const SHEET_HEADERS = [
   "Category",
   "Phone",
   "Email",
-  "Facebook",
-  "Instagram",
-  "Twitter/X",
-  "LinkedIn",
   "Address",
   "Website",
   "Rating",
   "Verification",
   "Source",
-  "Collected At"
+  "Collected At",
+  "Facebook",
+  "Instagram",
+  "Twitter/X",
+  "LinkedIn"
 ];
 
 function json(data, status = 200, extraHeaders = {}) {
@@ -101,63 +101,80 @@ async function googleAccessToken(serviceAccountJson) {
 
 function extractSheetId(input) {
   if (!input || typeof input !== "string") return null;
-  const match = input.match(/\/d\/([a-zA-Z0-9-_]+)/);
+  const match = input.match(/\/d\/([a-zA-Z0-9_-]+)/);
   return match ? match[1] : input.trim();
 }
 
 async function appendToGoogleSheet(leads, requestBody, env) {
   const sheetId = extractSheetId(requestBody.sheet_id) || env.GOOGLE_SHEET_ID;
-  const sheetTab = requestBody.sheet_tab || env.GOOGLE_SHEET_TAB || "Leads";
+  const requestedTab = requestBody.sheet_tab || env.GOOGLE_SHEET_TAB || "Leads";
+  const sheetTab = String(requestedTab).trim().slice(0, 100).replace(/[\\/\\?\\*\\[\\]:]/g, "_") || "Leads";
   const serviceAccount = env.GOOGLE_SERVICE_ACCOUNT_JSON || env.GOOGLESERVICES_JSON;
-  if (!sheetId || !serviceAccount) return { exported: false, reason: "Google Sheet ID or service-account secret is not configured" };
+  if (!sheetId || !serviceAccount) return { exported: false, reason: "Google Sheet URL/ID and service-account secret are required" };
 
   const accessToken = await googleAccessToken(serviceAccount);
+  const authHeaders = { authorization: `Bearer ${accessToken}`, "content-type": "application/json" };
   const values = leads.map((lead) => [
     lead.name,
     lead.category,
     lead.phone,
     lead.email,
-    lead.facebook || "",
-    lead.instagram || "",
-    lead.twitter || "",
-    lead.linkedin || "",
     lead.address,
     lead.website,
     lead.rating,
     lead.verification,
     lead.source,
     lead.collected_at,
+    lead.facebook || "",
+    lead.instagram || "",
+    lead.twitter || "",
+    lead.linkedin || "",
   ]);
-  const range = `${sheetTab}!A:N`;
-  const url = new URL(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/${encodeURIComponent(range)}:append`);
-  url.searchParams.set("valueInputOption", "USER_ENTERED");
-  url.searchParams.set("insertDataOption", "INSERT_ROWS");
-  let response = await fetch(url, {
-    method: "POST",
-    headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
-    body: JSON.stringify({ majorDimension: "ROWS", values: [SHEET_HEADERS, ...values] }),
-  });
-  let data = await response.json();
-  
-  // If tab doesn't exist, try to create it
-  if (!response.ok && data.error?.message?.includes("Unable to parse range")) {
+  const headerRange = `${sheetTab}!A1:N1`;
+  const appendRange = `${sheetTab}!A:N`;
+  const headerUrl = new URL(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/${encodeURIComponent(headerRange)}`);
+  headerUrl.searchParams.set("majorDimension", "ROWS");
+  let headerResponse = await fetch(headerUrl, { headers: authHeaders });
+  let headerData = await headerResponse.json();
+
+  if (!headerResponse.ok && headerData.error?.message?.includes("Unable to parse range")) {
     const createUrl = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}:batchUpdate`;
-    await fetch(createUrl, {
+    const createResponse = await fetch(createUrl, {
       method: "POST",
-      headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
+      headers: authHeaders,
       body: JSON.stringify({ requests: [{ addSheet: { properties: { title: sheetTab } } }] }),
     });
-    // Retry append
-    response = await fetch(url, {
-      method: "POST",
-      headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
-      body: JSON.stringify({ majorDimension: "ROWS", values: [SHEET_HEADERS, ...values] }),
+    const createData = await createResponse.json();
+    if (!createResponse.ok) throw new Error(`Google Sheets tab creation failed: ${createData.error?.message || "unknown error"}`);
+    headerData = { values: [] };
+  }
+  if (!headerResponse.ok && !headerData.values) throw new Error(`Google Sheets header check failed: ${headerData.error?.message || "unknown error"}`);
+
+  const existingHeader = headerData.values?.[0] || [];
+  const headerMatches = SHEET_HEADERS.every((header, index) => existingHeader[index] === header);
+  if (!headerMatches) {
+    const updateUrl = new URL(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/${encodeURIComponent(headerRange)}`);
+    updateUrl.searchParams.set("valueInputOption", "USER_ENTERED");
+    const updateResponse = await fetch(updateUrl, {
+      method: "PUT",
+      headers: authHeaders,
+      body: JSON.stringify({ majorDimension: "ROWS", values: [SHEET_HEADERS] }),
     });
-    data = await response.json();
+    const updateData = await updateResponse.json();
+    if (!updateResponse.ok) throw new Error(`Google Sheets header update failed: ${updateData.error?.message || "unknown error"}`);
   }
 
+  const appendUrl = new URL(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/${encodeURIComponent(appendRange)}:append`);
+  appendUrl.searchParams.set("valueInputOption", "USER_ENTERED");
+  appendUrl.searchParams.set("insertDataOption", "INSERT_ROWS");
+  const response = await fetch(appendUrl, {
+    method: "POST",
+    headers: authHeaders,
+    body: JSON.stringify({ majorDimension: "ROWS", values }),
+  });
+  const data = await response.json();
   if (!response.ok) throw new Error(`Google Sheets export failed: ${data.error?.message || "unknown error"}`);
-  return { exported: true, updated_range: data.updates?.updatedRange || null };
+  return { exported: true, updated_range: data.updates?.updatedRange || null, sheet_tab: sheetTab, header_written: !headerMatches };
 }
 
 async function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
