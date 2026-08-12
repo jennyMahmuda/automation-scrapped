@@ -77,3 +77,8 @@ For local Worker development, use Wrangler with local secrets in `cloudflare/.de
 ```
 
 `sheet_id` and `sheet_tab` may be supplied per request, but the recommended production setup is to keep them as Cloudflare secrets/variables so the browser does not need to know them.
+
+---
+
+**Developed by Sayad md Bayezid & jenny**
+© 2026 SmartGen Nexus. All rights reserved.
