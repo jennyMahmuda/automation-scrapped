@@ -168,6 +168,7 @@
                         <input type="text" x-model="sheetId" @input="saveSheetConfig()" :disabled="!sheetSyncEnabled" placeholder="https://docs.google.com/spreadsheets/d/..." 
                             class="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
                     </div>
+                    <p class="text-xs text-slate-500 mt-1">One spreadsheet, two clean tabs: <strong class="text-cyan-300">Leads</strong> for verified business data and <strong class="text-violet-300">Outreach</strong> for contacts and AI drafts.</p>
                 </div>
 
                 <div class="sm:col-span-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-2">
@@ -330,7 +331,8 @@
                                 location: this.location,
                                 verified_only: this.verifiedOnly,
                                 sheet_id: this.sheetId,
-                                sheet_tab: 'Leads',
+                                leads_sheet_tab: 'Leads',
+                                outreach_sheet_tab: 'Outreach',
                                 max_results: 20,
                                 enrich_with_ai: true,
                                 export_to_sheet: this.sheetSyncEnabled
@@ -348,7 +350,7 @@
                             this.stage = 3;
                             this.progress = 90;
                             this.metrics.sheet = !this.sheetSyncEnabled ? 'Disabled' : (data.sheets?.exported ? 'Synced' : 'Failed');
-                            const sheetMessage = !this.sheetSyncEnabled ? 'Google Sheets sync is disabled; leads remain in the dashboard.' : (data.sheets?.exported ? 'All leads appended to the selected Google Sheet.' : (data.sheets?.reason || 'Google Sheet sync failed.'));
+                            const sheetMessage = !this.sheetSyncEnabled ? 'Google Sheets sync is disabled; leads remain in the dashboard.' : (data.sheets?.exported ? `Leads synced to the “${data.sheets.sheet_tab || 'Leads'}” tab; contacts and drafts synced to the “${data.sheets.outreach_sheet_tab || 'Outreach'}” tab.` : (data.sheets?.reason || 'Google Sheet sync failed.'));
                             this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: sheetMessage });
                             const outreachMessage = data.outreach?.enabled ? ` ${data.count} ${data.outreach.draft_type || this.draftType} draft(s) prepared.` : '';
                             this.message = sheetMessage + outreachMessage;

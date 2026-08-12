@@ -1,5 +1,5 @@
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
-const SHEET_HEADERS = [
+const LEADS_SHEET_HEADERS = [
   "Name",
   "Category",
   "Phone",
@@ -13,7 +13,28 @@ const SHEET_HEADERS = [
   "Facebook",
   "Instagram",
   "Twitter/X",
-  "LinkedIn",
+  "LinkedIn"
+];
+
+const OUTREACH_SHEET_HEADERS = [
+  "Name",
+  "Category",
+  "Phone",
+  "Email",
+  "Address",
+  "Website",
+  "Draft Type",
+  "Email Subject Draft",
+  "Email Message Draft",
+  "WhatsApp Message Draft",
+  "Personalization Note",
+  "Sender Email",
+  "Support CTA",
+  "Sender Website"
+];
+
+const LEGACY_COMBINED_HEADERS = [
+  ...LEADS_SHEET_HEADERS,
   "Draft Type",
   "Email Subject Draft",
   "Email Message Draft",
@@ -139,38 +160,22 @@ function extractSheetId(input) {
   return match ? match[1] : input.trim();
 }
 
-async function appendToGoogleSheet(leads, requestBody, env) {
-  const sheetId = extractSheetId(requestBody.sheet_id) || env.GOOGLE_SHEET_ID;
-  const requestedTab = requestBody.sheet_tab || env.GOOGLE_SHEET_TAB || "Leads";
-  const sheetTab = String(requestedTab).trim().slice(0, 100).replace(/[\\/\\?\\*\\[\\]:]/g, "_") || "Leads";
-  const serviceAccount = env.GOOGLE_SERVICE_ACCOUNT_JSON || env.GOOGLESERVICES_JSON;
-  if (!sheetId || !serviceAccount) return { exported: false, reason: "Google Sheet URL/ID and service-account secret are required" };
+function sanitizeSheetTitle(value, fallback) {
+  return String(value || fallback).trim().slice(0, 100).replace(/[\\/\\?\\*\\[\\]:]/g, "_") || fallback;
+}
 
-  const accessToken = await googleAccessToken(serviceAccount);
-  const authHeaders = { authorization: `Bearer ${accessToken}`, "content-type": "application/json" };
-  const values = leads.map((lead) => [
-    lead.name,
-    lead.category,
-    lead.phone,
-    lead.email,
-    lead.address,
-    lead.website,
-    lead.rating,
-    lead.verification,
-    lead.source,
-    lead.collected_at,
-    lead.facebook || "",
-    lead.instagram || "",
-    lead.twitter || "",
-    lead.linkedin || "",
-    lead.draft_type || "general",
-    lead.email_subject || "",
-    lead.email_draft || "",
-    lead.whatsapp_draft || "",
-    lead.personalization_note || "",
-  ]);
-  const headerRange = `${sheetTab}!A1:S1`;
-  const appendRange = `${sheetTab}!A:S`;
+function resolveSheetTabs(requestBody, env) {
+  const leadsTab = sanitizeSheetTitle(requestBody.leads_sheet_tab || requestBody.sheet_tab || env.GOOGLE_SHEET_TAB || "Leads", "Leads");
+  let outreachTab = sanitizeSheetTitle(requestBody.outreach_sheet_tab || env.GOOGLE_OUTREACH_SHEET_TAB || "Outreach", "Outreach");
+  if (outreachTab.toLowerCase() === leadsTab.toLowerCase()) {
+    outreachTab = leadsTab.toLowerCase() === "outreach" ? "Leads" : "Outreach";
+  }
+  if (outreachTab.toLowerCase() === leadsTab.toLowerCase()) outreachTab = `${leadsTab} Outreach`.slice(0, 100);
+  return { leadsTab, outreachTab };
+}
+
+async function ensureSheetTab(sheetId, sheetTab, headers, authHeaders, cleanupLegacy = false) {
+  const headerRange = `${sheetTab}!A1:${String.fromCharCode(64 + headers.length)}1`;
   const headerUrl = new URL(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/${encodeURIComponent(headerRange)}`);
   headerUrl.searchParams.set("majorDimension", "ROWS");
   let headerResponse = await fetch(headerUrl, { headers: authHeaders });
@@ -190,30 +195,93 @@ async function appendToGoogleSheet(leads, requestBody, env) {
   if (!headerResponse.ok && !headerData.values) throw new Error(`Google Sheets header check failed: ${headerData.error?.message || "unknown error"}`);
 
   const existingHeader = headerData.values?.[0] || [];
-  const headerMatches = SHEET_HEADERS.every((header, index) => existingHeader[index] === header);
+  const headerMatches = headers.every((header, index) => existingHeader[index] === header);
+  if (cleanupLegacy && LEGACY_COMBINED_HEADERS.every((header, index) => existingHeader[index] === header)) {
+    const clearUrl = new URL(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/${encodeURIComponent(`${sheetTab}!O:Z`)}:clear`);
+    const clearResponse = await fetch(clearUrl, { method: "POST", headers: authHeaders, body: "{}" });
+    const clearData = await clearResponse.json();
+    if (!clearResponse.ok) throw new Error(`Google Sheets legacy draft cleanup failed: ${clearData.error?.message || "unknown error"}`);
+  }
   if (!headerMatches) {
     const updateUrl = new URL(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/${encodeURIComponent(headerRange)}`);
     updateUrl.searchParams.set("valueInputOption", "USER_ENTERED");
     const updateResponse = await fetch(updateUrl, {
       method: "PUT",
       headers: authHeaders,
-      body: JSON.stringify({ majorDimension: "ROWS", values: [SHEET_HEADERS] }),
+      body: JSON.stringify({ majorDimension: "ROWS", values: [headers] }),
     });
     const updateData = await updateResponse.json();
     if (!updateResponse.ok) throw new Error(`Google Sheets header update failed: ${updateData.error?.message || "unknown error"}`);
   }
+  return { header_written: !headerMatches };
+}
 
+async function appendSheetRows(sheetId, sheetTab, headers, rows, authHeaders, cleanupLegacy = false) {
+  const headerState = await ensureSheetTab(sheetId, sheetTab, headers, authHeaders, cleanupLegacy);
+  const appendRange = `${sheetTab}!A:${String.fromCharCode(64 + headers.length)}`;
   const appendUrl = new URL(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/${encodeURIComponent(appendRange)}:append`);
   appendUrl.searchParams.set("valueInputOption", "USER_ENTERED");
   appendUrl.searchParams.set("insertDataOption", "INSERT_ROWS");
   const response = await fetch(appendUrl, {
     method: "POST",
     headers: authHeaders,
-    body: JSON.stringify({ majorDimension: "ROWS", values }),
+    body: JSON.stringify({ majorDimension: "ROWS", values: rows }),
   });
   const data = await response.json();
-  if (!response.ok) throw new Error(`Google Sheets export failed: ${data.error?.message || "unknown error"}`);
-  return { exported: true, updated_range: data.updates?.updatedRange || null, sheet_tab: sheetTab, header_written: !headerMatches };
+  if (!response.ok) throw new Error(`Google Sheets export failed for ${sheetTab}: ${data.error?.message || "unknown error"}`);
+  return { sheet_tab: sheetTab, updated_range: data.updates?.updatedRange || null, header_written: headerState.header_written, rows: rows.length };
+}
+
+async function appendToGoogleSheet(leads, requestBody, env) {
+  const sheetId = extractSheetId(requestBody.sheet_id) || env.GOOGLE_SHEET_ID;
+  const serviceAccount = env.GOOGLE_SERVICE_ACCOUNT_JSON || env.GOOGLESERVICES_JSON;
+  if (!sheetId || !serviceAccount) return { exported: false, reason: "Google Sheet URL/ID and service-account secret are required" };
+
+  const { leadsTab, outreachTab } = resolveSheetTabs(requestBody, env);
+  const accessToken = await googleAccessToken(serviceAccount);
+  const authHeaders = { authorization: `Bearer ${accessToken}`, "content-type": "application/json" };
+  const leadRows = leads.map((lead) => [
+    lead.name,
+    lead.category,
+    lead.phone,
+    lead.email,
+    lead.address,
+    lead.website,
+    lead.rating,
+    lead.verification,
+    lead.source,
+    lead.collected_at,
+    lead.facebook || "",
+    lead.instagram || "",
+    lead.twitter || "",
+    lead.linkedin || "",
+  ]);
+  const outreachRows = leads.map((lead) => [
+    lead.name,
+    lead.category,
+    lead.phone,
+    lead.email,
+    lead.address,
+    lead.website,
+    lead.draft_type || "general",
+    lead.email_subject || "",
+    lead.email_draft || "",
+    lead.whatsapp_draft || "",
+    lead.personalization_note || "",
+    OUTREACH_PROFILE.email_sender,
+    OUTREACH_PROFILE.support_cta,
+    OUTREACH_PROFILE.website,
+  ]);
+
+  const leadsResult = await appendSheetRows(sheetId, leadsTab, LEADS_SHEET_HEADERS, leadRows, authHeaders, true);
+  const outreachResult = await appendSheetRows(sheetId, outreachTab, OUTREACH_SHEET_HEADERS, outreachRows, authHeaders);
+  return {
+    exported: true,
+    sheet_tab: leadsTab,
+    outreach_sheet_tab: outreachTab,
+    sheet_tabs: { leads: leadsResult, outreach: outreachResult },
+    rows: leads.length,
+  };
 }
 
 async function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
