@@ -14,11 +14,31 @@ const SHEET_HEADERS = [
   "Instagram",
   "Twitter/X",
   "LinkedIn",
+  "Draft Type",
   "Email Subject Draft",
   "Email Message Draft",
   "WhatsApp Message Draft",
   "Personalization Note"
 ];
+
+const OUTREACH_SKILLS = {
+  general: { label: "Professional Introduction", goal: "Start a respectful conversation based on a relevant public business fact." },
+  proposal: { label: "Project Proposal", goal: "Suggest a focused project with scope, outcome, and a low-pressure next step." },
+  marketing: { label: "Marketing Growth", goal: "Offer measurable marketing, tracking, SEO, or lead-generation improvement." },
+  offering: { label: "Service Offering", goal: "Present the sender's relevant service clearly without overpromising." },
+  partnership: { label: "Business Partnership", goal: "Explore a mutually useful partnership, referral, or delivery collaboration." },
+  website: { label: "Website Build", goal: "Offer a fast, professional website or web-platform improvement." },
+  seo: { label: "SEO System", goal: "Offer technical, on-page, or local SEO help with measurable next steps." },
+  developer: { label: "Developer Support", goal: "Offer development support for a business, agency, freelancer, or product team." },
+  real_estate: { label: "Real Estate Digital", goal: "Offer a stronger website, lead system, tracking, or marketing workflow for real-estate businesses." },
+  freelancer: { label: "Freelancer Collaboration", goal: "Offer reliable web, SEO, or product support to a freelancer or solo operator." },
+  follow_up: { label: "Follow-up", goal: "Create a polite follow-up that adds value without pressure or repeated claims." }
+};
+
+function normalizeDraftType(value) {
+  const key = String(value || "general").toLowerCase().trim().replace(/[-\s]+/g, "_");
+  return OUTREACH_SKILLS[key] ? key : "general";
+}
 
 const OUTREACH_PROFILE = {
   sender: "Sayad Md Bayezid Hosan",
@@ -143,13 +163,14 @@ async function appendToGoogleSheet(leads, requestBody, env) {
     lead.instagram || "",
     lead.twitter || "",
     lead.linkedin || "",
+    lead.draft_type || "general",
     lead.email_subject || "",
     lead.email_draft || "",
     lead.whatsapp_draft || "",
     lead.personalization_note || "",
   ]);
-  const headerRange = `${sheetTab}!A1:R1`;
-  const appendRange = `${sheetTab}!A:R`;
+  const headerRange = `${sheetTab}!A1:S1`;
+  const appendRange = `${sheetTab}!A:S`;
   const headerUrl = new URL(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/${encodeURIComponent(headerRange)}`);
   headerUrl.searchParams.set("majorDimension", "ROWS");
   let headerResponse = await fetch(headerUrl, { headers: authHeaders });
@@ -358,47 +379,65 @@ async function geminiEnrichment(lead, env) {
   try {   return JSON.parse(raw); } catch { return {}; }
 }
 
-function fallbackOutreachDraft(lead, style = "") {
+function fallbackOutreachDraft(lead, style = "", draftType = "general") {
   const business = lead.name || "your business";
   const category = lead.category || "business";
+  const skill = OUTREACH_SKILLS[draftType] || OUTREACH_SKILLS.general;
   const websiteLine = lead.website ? `I found your public website (${lead.website}) while researching ${category} businesses.` : `I found your public ${category} listing while researching businesses in the area.`;
-  const subject = `A practical digital growth idea for ${business}`;
-  const email = `Hi ${business} team,\n\n${websiteLine}\n\nI’m Sayad Md Bayezid Hosan. I help businesses build fast web platforms, SEO systems, conversion tracking, and lead infrastructure that stay fast under traffic.\n\nIf you're looking to upgrade your digital presence, feel free to reach us directly at ${OUTREACH_PROFILE.support_cta} or visit ${OUTREACH_PROFILE.website}.\n\nWould a brief 10-minute chat about your current setup be useful? If not, simply reply “not a fit” and I won’t message again.\n\nBest regards,\nSayad Md Bayezid Hosan\n${OUTREACH_PROFILE.email_sender} | ${OUTREACH_PROFILE.website}`;
-  const whatsapp = `Hi ${business} team, I’m Sayad Md Bayezid Hosan (info@sayadbayezid.com). I help ${category} businesses with web platforms, SEO, and lead systems. Thought a quick digital review might be helpful for you. If interested in chatting, reach our team at support@sayadbayezid.com or check https://sayadbayezid.com. Reply “not a fit” to opt out.`;
-  return { email_subject: subject, email_draft: email, whatsapp_draft: whatsapp, personalization_note: `Public ${category} listing${lead.address ? ` in ${lead.address}` : ""}; verify before sending. Contact: ${OUTREACH_PROFILE.email_sender}, CTA: ${OUTREACH_PROFILE.support_cta}. ${style ? "Custom style applied." : ""}` };
+  const subjectByType = {
+    proposal: `A focused digital project proposal for ${business}`,
+    marketing: `A measurable marketing idea for ${business}`,
+    offering: `A practical digital service option for ${business}`,
+    partnership: `A possible delivery partnership with ${business}`,
+    website: `A website improvement idea for ${business}`,
+    seo: `A practical SEO opportunity for ${business}`,
+    developer: `Development support for ${business}`,
+    real_estate: `A stronger digital lead system for ${business}`,
+    freelancer: `Reliable delivery support for ${business}`,
+    follow_up: `Following up with one useful idea for ${business}`,
+    general: `A practical digital growth idea for ${business}`,
+  };
+  const subject = subjectByType[draftType] || subjectByType.general;
+  const email = `Hi ${business} team,\n\n${websiteLine}\n\nI’m Sayad Md Bayezid Hosan. ${skill.goal} My work covers web platforms, SEO systems, conversion tracking, marketing infrastructure, and lead systems.\n\nIf this is relevant, please contact ${OUTREACH_PROFILE.support_cta} for a brief conversation, or review ${OUTREACH_PROFILE.website}. I can share a practical next-step outline based on your goals.\n\nIf this is not relevant, reply “not a fit” and I won’t message again.\n\nBest regards,\nSayad Md Bayezid Hosan\n${OUTREACH_PROFILE.email_sender} | ${OUTREACH_PROFILE.website}`;
+  const whatsapp = `Hi ${business} team, I’m Sayad Md Bayezid Hosan (${OUTREACH_PROFILE.email_sender}). ${skill.goal} I work on websites, SEO, tracking, and lead systems. If this is useful, contact ${OUTREACH_PROFILE.support_cta} or visit ${OUTREACH_PROFILE.website}. Reply “not a fit” to opt out.`;
+  return { draft_type: draftType, email_subject: subject, email_draft: email, whatsapp_draft: whatsapp, personalization_note: `${skill.label}: ${skill.goal} Public ${category} listing${lead.address ? ` in ${lead.address}` : ""}; verify facts before sending. ${style ? "Custom style applied." : ""}` };
 }
 
-async function outreachDraftForLead(lead, env, style = "") {
+async function outreachDraftForLead(lead, env, style = "", draftType = "general") {
+  const normalizedType = normalizeDraftType(draftType);
   const apiKey = env.GEMINI_OUTREACH_API_KEY || env.GEMINI_API_KEY;
-  if (!apiKey) return fallbackOutreachDraft(lead, style);
+  if (!apiKey) return fallbackOutreachDraft(lead, style, normalizedType);
   const model = env.GEMINI_OUTREACH_MODEL || env.GEMINI_MODEL || "gemini-1.5-flash";
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const skill = OUTREACH_SKILLS[normalizedType];
   const prompt = [
-    "You are a careful B2B outreach copywriter. Return strict JSON with exactly these keys: email_subject, email_draft, whatsapp_draft, personalization_note.",
+    "You are a senior B2B outreach copywriter and editor. Return strict JSON with exactly these keys: draft_type, email_subject, email_draft, whatsapp_draft, personalization_note.",
+    `Selected skill: ${skill.label}. Goal: ${skill.goal}.`,
     `Sender profile: ${JSON.stringify(OUTREACH_PROFILE)}`,
     `Additional campaign style from the user: ${style || "Use the sender profile style."}`,
-    "Rules: write drafts only; never send messages. Use sender email info@sayadbayezid.com and support CTA support@sayadbayezid.com. Use only facts present in the lead object. Do not claim the business is new, weak, interested, or a customer unless the lead data states it. Do not invent names, services, results, or relationships. Keep email under 140 words and WhatsApp under 70 words. Make the message human, specific, respectful, and easy to decline. Mention website https://sayadbayezid.com naturally.",
+    "Quality rules: write drafts only; never send messages. Use sender email info@sayadbayezid.com and support CTA support@sayadbayezid.com. Use only facts present in the lead object. Do not claim the business is new, weak, interested, or a customer unless the lead data states it. Do not invent names, services, results, or relationships. Keep email under 140 words and WhatsApp under 70 words. Use correct grammar, spelling, punctuation, and natural business English. Do not include placeholders such as [Name]. Make the message human, specific, respectful, easy to decline, and include a clear but low-pressure CTA. Mention https://sayadbayezid.com naturally.",
     `Lead: ${JSON.stringify({ name: lead.name, category: lead.category, address: lead.address, website: lead.website, rating: lead.rating, facebook: lead.facebook, instagram: lead.instagram, twitter: lead.twitter, linkedin: lead.linkedin })}`,
   ].join("\n");
   try {
     const response = await fetchWithTimeout(endpoint, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json", temperature: 0.4 } }),
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json", temperature: 0.2 } }),
     }, 12000);
-    if (!response.ok) return fallbackOutreachDraft(lead, style);
+    if (!response.ok) return fallbackOutreachDraft(lead, style, normalizedType);
     const data = await response.json();
     const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
     const parsed = JSON.parse(raw.replace(/^```json\s*/i, "").replace(/\s*```$/i, "").trim());
-    if (!parsed.email_subject || !parsed.email_draft || !parsed.whatsapp_draft) return fallbackOutreachDraft(lead, style);
+    if (!parsed.email_subject || !parsed.email_draft || !parsed.whatsapp_draft) return fallbackOutreachDraft(lead, style, normalizedType);
     return {
+      draft_type: normalizedType,
       email_subject: String(parsed.email_subject).slice(0, 180),
       email_draft: String(parsed.email_draft).slice(0, 3000),
       whatsapp_draft: String(parsed.whatsapp_draft).slice(0, 1200),
       personalization_note: String(parsed.personalization_note || "Review the public facts before sending.").slice(0, 500),
     };
   } catch {
-    return fallbackOutreachDraft(lead, style);
+    return fallbackOutreachDraft(lead, style, normalizedType);
   }
 }
 
@@ -479,8 +518,9 @@ async function handleScrape(request, env) {
     : candidates.slice(0, requestedMax);
   const generateOutreach = body.generate_outreach !== false;
   const outreachStyle = typeof body.outreach_style === "string" ? body.outreach_style.trim().slice(0, 1000) : "";
+  const draftType = normalizeDraftType(body.draft_type);
   if (generateOutreach) {
-    leads = await Promise.all(leads.map(async (lead) => ({ ...lead, ...(await outreachDraftForLead(lead, env, outreachStyle)) })));
+    leads = await Promise.all(leads.map(async (lead) => ({ ...lead, ...(await outreachDraftForLead(lead, env, outreachStyle, draftType)) })));
   }
   let sheets = { exported: false, reason: "Export not requested" };
   if (body.export_to_sheet !== false && leads.length > 0) {
@@ -495,7 +535,7 @@ async function handleScrape(request, env) {
     leads,
     sheets,
     filters: { verified_only: verifiedOnly, required_fields: verifiedOnly ? ["phone", "email"] : [] },
-    outreach: { enabled: generateOutreach, provider: env.GEMINI_OUTREACH_API_KEY ? "dedicated Gemini outreach key" : (env.GEMINI_API_KEY ? "shared Gemini key" : "safe fallback templates") },
+    outreach: { enabled: generateOutreach, draft_type: draftType, provider: env.GEMINI_OUTREACH_API_KEY ? "dedicated Gemini outreach key" : (env.GEMINI_API_KEY ? "shared Gemini key" : "safe fallback templates"), available_skills: Object.entries(OUTREACH_SKILLS).map(([key, value]) => ({ key, label: value.label, goal: value.goal })) },
     providers: { google_places: true, firecrawl: Boolean(env.FIRECRAWL_API_KEY), gemini: Boolean(env.GEMINI_API_KEY || env.GEMINI_OUTREACH_API_KEY), geekflare_configured: Boolean(env.GEEKFLARE_API_KEY) },
   });
 }
@@ -507,7 +547,7 @@ export default {
     try {
       let response;
       if (request.method === "GET" && url.pathname === "/") response = json({ service: "NexusLeads API", status: "online", version: "1.0.0" });
-      else if (request.method === "GET" && url.pathname === "/api/health") response = json({ status: "ok", providers: { google_places: Boolean(env.GOOGLE_MAP_API_NEW), firecrawl: Boolean(env.FIRECRAWL_API_KEY), gemini: Boolean(env.GEMINI_API_KEY), google_sheets: Boolean(env.GOOGLE_SERVICE_ACCOUNT_JSON || env.GOOGLESERVICES_JSON) } });
+      else if (request.method === "GET" && url.pathname === "/api/health") response = json({ status: "ok", providers: { google_places: Boolean(env.GOOGLE_MAP_API_NEW), firecrawl: Boolean(env.FIRECRAWL_API_KEY), gemini: Boolean(env.GEMINI_API_KEY || env.GEMINI_OUTREACH_API_KEY), google_sheets: Boolean(env.GOOGLE_SERVICE_ACCOUNT_JSON || env.GOOGLESERVICES_JSON) }, outreach_skills: Object.entries(OUTREACH_SKILLS).map(([key, value]) => ({ key, label: value.label })) });
       else if (request.method === "POST" && url.pathname === "/api/scrape") response = await handleScrape(request, env);
       else response = json({ success: false, error: "Not found" }, 404);
       return withCors(response, request, env);

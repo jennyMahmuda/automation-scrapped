@@ -119,6 +119,25 @@
                     <p class="text-xs text-slate-500 mt-1">Gemini uses this style to create drafts only. Nothing is sent automatically.</p>
                 </div>
                 <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Draft Skill</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-violet-400"><i class="fa-solid fa-pen-nib"></i></span>
+                        <select x-model="draftType" class="w-full pl-10 pr-4 py-3 bg-slate-950 border border-violet-500/30 rounded-xl text-slate-100 focus:outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-400 transition">
+                            <option value="general">Professional Introduction</option>
+                            <option value="proposal">Project Proposal</option>
+                            <option value="marketing">Marketing Growth</option>
+                            <option value="offering">Service Offering</option>
+                            <option value="partnership">Business Partnership</option>
+                            <option value="website">Website Build</option>
+                            <option value="seo">SEO System</option>
+                            <option value="developer">Developer Support</option>
+                            <option value="real_estate">Real Estate Digital</option>
+                            <option value="freelancer">Freelancer Collaboration</option>
+                            <option value="follow_up">Follow-up</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
                     <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Keyword / Industry</label>
                     <div class="relative">
                         <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
@@ -226,6 +245,7 @@
                                     </td>
                                     <td class="p-4">
                                         <div class="flex flex-col gap-2 min-w-[150px]">
+                                            <span x-show="lead.draft_type" class="text-violet-300 text-xs font-semibold" x-text="lead.draft_type"></span>
                                             <button @click="copyText(lead.email_draft)" x-show="lead.email_draft" class="text-left text-xs px-2 py-1 rounded bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 transition"><i class="fa-solid fa-envelope mr-1"></i> Copy Email Draft</button>
                                             <button @click="copyText(lead.whatsapp_draft)" x-show="lead.whatsapp_draft" class="text-left text-xs px-2 py-1 rounded bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 transition"><i class="fa-brands fa-whatsapp mr-1"></i> Copy WhatsApp Draft</button>
                                             <span x-show="!lead.email_draft && !lead.whatsapp_draft" class="text-slate-600 text-xs">Not generated</span>
@@ -266,6 +286,7 @@
             return {
                 prompt: '',
                 outreachStyle: '',
+                draftType: 'general',
                 generateOutreach: true,
                 keyword: '',
                 location: '',
@@ -303,6 +324,7 @@
                             body: JSON.stringify({
                                 prompt: this.prompt,
                                 outreach_style: this.outreachStyle,
+                                draft_type: this.draftType,
                                 generate_outreach: this.generateOutreach,
                                 keyword: this.keyword,
                                 location: this.location,
@@ -328,7 +350,7 @@
                             this.metrics.sheet = !this.sheetSyncEnabled ? 'Disabled' : (data.sheets?.exported ? 'Synced' : 'Failed');
                             const sheetMessage = !this.sheetSyncEnabled ? 'Google Sheets sync is disabled; leads remain in the dashboard.' : (data.sheets?.exported ? 'All leads appended to the selected Google Sheet.' : (data.sheets?.reason || 'Google Sheet sync failed.'));
                             this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: sheetMessage });
-                            const outreachMessage = data.outreach?.enabled ? ` ${data.count} personalized outreach draft(s) prepared.` : '';
+                            const outreachMessage = data.outreach?.enabled ? ` ${data.count} ${data.outreach.draft_type || this.draftType} draft(s) prepared.` : '';
                             this.message = sheetMessage + outreachMessage;
                         } else {
                             this.metrics.sheet = 'Failed';
@@ -374,9 +396,9 @@
                 },
                 exportCSV() {
                     const cell = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
-                    let csv = ['Name','Category','Phone','Email','Facebook','Instagram','Twitter','LinkedIn','Address','Website','Rating','Verification','Email Subject Draft','Email Message Draft','WhatsApp Message Draft','Personalization Note'].map(cell).join(',') + '\\n';
+                    let csv = ['Name','Category','Phone','Email','Facebook','Instagram','Twitter','LinkedIn','Draft Type','Address','Website','Rating','Verification','Email Subject Draft','Email Message Draft','WhatsApp Message Draft','Personalization Note'].map(cell).join(',') + '\\n';
                     this.leads.forEach(l => {
-                        csv += [l.name, l.category, l.phone, l.email, l.facebook, l.instagram, l.twitter, l.linkedin, l.address, l.website, l.rating, l.verification, l.email_subject, l.email_draft, l.whatsapp_draft, l.personalization_note].map(cell).join(',') + '\\n';
+                        csv += [l.name, l.category, l.phone, l.email, l.facebook, l.instagram, l.twitter, l.linkedin, l.draft_type, l.address, l.website, l.rating, l.verification, l.email_subject, l.email_draft, l.whatsapp_draft, l.personalization_note].map(cell).join(',') + '\\n';
                     });
                     const blob = new Blob([csv], { type: 'text/csv' });
                     const url = window.URL.createObjectURL(blob);
