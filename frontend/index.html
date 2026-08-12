@@ -23,6 +23,12 @@
                 </div>
                 <span class="text-xl font-bold bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">NexusLeads</span>
             </div>
+            <nav class="hidden lg:flex items-center gap-5 text-xs text-slate-400" aria-label="Primary navigation">
+                <a href="#how-it-works" class="hover:text-cyan-300 transition">How it works</a>
+                <a href="#proof" class="hover:text-cyan-300 transition">Live proof</a>
+                <a href="#reviews" class="hover:text-cyan-300 transition">Client reviews</a>
+                <a href="#pricing" class="hover:text-cyan-300 transition">Pricing</a>
+            </nav>
             <div class="flex items-center space-x-3">
                 <template x-if="currentUser">
                     <div class="flex items-center space-x-2">
@@ -49,18 +55,38 @@
 
     <!-- Main Content -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full flex-grow">
-        <!-- Hero Section -->
-        <div class="text-center max-w-3xl mx-auto mb-12">
-            <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight mb-4 bg-gradient-to-r from-white via-indigo-100 to-slate-400 bg-clip-text text-transparent">
-                Intelligent B2B Lead Generation
-            </h1>
-            <p class="text-slate-400 text-lg">
-                Extract, verify, and export high-converting leads instantly with automated Google Sheets synchronization.
-            </p>
-        </div>
+        <!-- Public SaaS Hero -->
+        <section id="home" class="relative overflow-hidden rounded-[2rem] border border-indigo-500/20 bg-gradient-to-br from-indigo-950/70 via-slate-900/90 to-cyan-950/50 p-7 sm:p-10 lg:p-14 mb-12 shadow-2xl shadow-indigo-950/30">
+            <div class="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl pointer-events-none"></div>
+            <div class="absolute -left-24 -bottom-32 h-80 w-80 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none"></div>
+            <div class="relative grid lg:grid-cols-[1.15fr_.85fr] gap-10 items-center">
+                <div>
+                    <div class="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1.5 text-xs font-semibold text-cyan-300 mb-5">
+                        <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span> Edge-powered lead research for modern teams
+                    </div>
+                    <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.05] mb-5 bg-gradient-to-r from-white via-indigo-100 to-cyan-300 bg-clip-text text-transparent">Find better prospects. Verify faster. Reach out personally.</h1>
+                    <p class="text-slate-300 text-base sm:text-lg leading-8 max-w-2xl">NexusLeads turns a keyword and location into verified public business data, social profiles, and personalized Email and WhatsApp drafts—then organizes everything in clean Google Sheets tabs.</p>
+                    <div class="flex flex-col sm:flex-row gap-3 mt-7">
+                        <a href="#operations" class="inline-flex justify-center items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 px-5 py-3.5 text-sm font-bold text-white shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 transition"><i class="fa-solid fa-wand-magic-sparkles"></i> Explore the live tool</a>
+                        <a href="#how-it-works" class="inline-flex justify-center items-center gap-2 rounded-xl border border-slate-700 bg-slate-950/50 px-5 py-3.5 text-sm font-semibold text-slate-200 hover:border-cyan-400/40 transition"><i class="fa-solid fa-circle-play"></i> See how it works</a>
+                    </div>
+                    <div class="flex flex-wrap gap-x-5 gap-y-2 mt-7 text-xs text-slate-400">
+                        <span><i class="fa-solid fa-shield-halved text-emerald-400 mr-1.5"></i>Verified-only workflow</span>
+                        <span><i class="fa-solid fa-table-cells text-cyan-400 mr-1.5"></i>Leads + Outreach tabs</span>
+                        <span><i class="fa-solid fa-lock text-violet-400 mr-1.5"></i>Secrets stay server-side</span>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="rounded-2xl border border-white/10 bg-slate-950/60 p-4 backdrop-blur"><p class="text-3xl font-extrabold text-white">20–50</p><p class="text-xs text-slate-400 mt-1">lead target per search</p></div>
+                    <div class="rounded-2xl border border-white/10 bg-slate-950/60 p-4 backdrop-blur"><p class="text-3xl font-extrabold text-cyan-300">2 tabs</p><p class="text-xs text-slate-400 mt-1">clean Sheet export</p></div>
+                    <div class="rounded-2xl border border-white/10 bg-slate-950/60 p-4 backdrop-blur"><p class="text-3xl font-extrabold text-emerald-300">11</p><p class="text-xs text-slate-400 mt-1">outreach skills</p></div>
+                    <div class="rounded-2xl border border-white/10 bg-slate-950/60 p-4 backdrop-blur"><p class="text-3xl font-extrabold text-amber-300">100</p><p class="text-xs text-slate-400 mt-1">free leads daily</p></div>
+                </div>
+            </div>
+        </section>
 
         <!-- Live Dashboard -->
-        <section class="mb-10">
+        <section id="operations" class="mb-10">
             <div class="flex items-center justify-between mb-4">
                 <div>
                     <p class="text-xs uppercase tracking-[0.25em] text-cyan-400 font-semibold">Operations Center</p>
@@ -334,6 +360,59 @@
                 </div>
             </div>
         </div>
+        <!-- Education & Guide -->
+        <section id="how-it-works" class="grid lg:grid-cols-[.9fr_1.1fr] gap-6 mb-12 scroll-mt-24">
+            <div class="rounded-3xl border border-cyan-400/15 bg-gradient-to-br from-cyan-950/40 to-slate-900/80 p-7 shadow-xl">
+                <p class="text-xs uppercase tracking-[0.25em] text-cyan-300 font-semibold">The NexusLeads method</p>
+                <h2 class="text-3xl font-extrabold text-white mt-2">A calm workflow from idea to outreach.</h2>
+                <p class="text-sm text-slate-400 leading-7 mt-4">Every search stays understandable: discover public businesses, enrich only what is needed, verify the contact signal, then send organized rows to your Sheet.</p>
+                <a href="#operations" class="inline-flex items-center gap-2 mt-6 text-sm font-semibold text-cyan-300 hover:text-cyan-200 transition">Start with the live dashboard <i class="fa-solid fa-arrow-down"></i></a>
+            </div>
+            <div class="grid sm:grid-cols-2 gap-3">
+                <div class="rounded-2xl border border-slate-800 bg-slate-900/75 p-5"><span class="text-cyan-300 text-xl font-extrabold">01</span><h3 class="font-bold text-white mt-3">Describe the target</h3><p class="text-xs text-slate-400 leading-6 mt-2">Use keyword + location or an AI research prompt to define the market you want to explore.</p></div>
+                <div class="rounded-2xl border border-slate-800 bg-slate-900/75 p-5"><span class="text-violet-300 text-xl font-extrabold">02</span><h3 class="font-bold text-white mt-3">Discover candidates</h3><p class="text-xs text-slate-400 leading-6 mt-2">Google Places discovery expands the candidate pool and runs in safe five-lead enrichment batches.</p></div>
+                <div class="rounded-2xl border border-slate-800 bg-slate-900/75 p-5"><span class="text-emerald-300 text-xl font-extrabold">03</span><h3 class="font-bold text-white mt-3">Verify public details</h3><p class="text-xs text-slate-400 leading-6 mt-2">Keep the verified-only filter on when you need both a public phone number and email.</p></div>
+                <div class="rounded-2xl border border-slate-800 bg-slate-900/75 p-5"><span class="text-amber-300 text-xl font-extrabold">04</span><h3 class="font-bold text-white mt-3">Reach out with context</h3><p class="text-xs text-slate-400 leading-6 mt-2">Choose a draft skill and export clean Leads and Outreach tabs to the same Sheet.</p></div>
+            </div>
+        </section>
+
+        <!-- Live Proof -->
+        <section id="proof" class="mb-12 scroll-mt-24">
+            <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-5">
+                <div><p class="text-xs uppercase tracking-[0.25em] text-emerald-300 font-semibold">Live proof</p><h2 class="text-3xl font-extrabold text-white mt-2">See what the automation is doing.</h2><p class="text-sm text-slate-400 mt-2">This panel reflects the current run state—not a marketing animation.</p></div>
+                <a href="https://jennymahmuda.github.io/automation-scrapped/" target="_blank" rel="noopener" class="text-xs font-semibold text-cyan-300 hover:text-cyan-200">Open live dashboard <i class="fa-solid fa-arrow-up-right-from-square ml-1"></i></a>
+            </div>
+            <div class="grid lg:grid-cols-[1.2fr_.8fr] gap-5">
+                <div class="rounded-3xl border border-emerald-400/20 bg-slate-900/80 p-6 shadow-xl">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-4"><span class="text-sm font-semibold text-white">Browser-verified pipeline</span><span class="inline-flex items-center gap-2 text-xs text-emerald-300"><span class="h-2 w-2 rounded-full bg-emerald-400"></span> Ready to test</span></div>
+                    <div class="grid sm:grid-cols-3 gap-3 mt-5">
+                        <div class="rounded-2xl bg-slate-950/70 p-4"><i class="fa-solid fa-location-dot text-cyan-300"></i><p class="text-xs text-slate-400 mt-3">Discover</p><p class="text-sm font-bold text-white mt-1">Google Places</p></div>
+                        <div class="rounded-2xl bg-slate-950/70 p-4"><i class="fa-solid fa-shield-halved text-emerald-300"></i><p class="text-xs text-slate-400 mt-3">Verify</p><p class="text-sm font-bold text-white mt-1">Phone + email</p></div>
+                        <div class="rounded-2xl bg-slate-950/70 p-4"><i class="fa-solid fa-paper-plane text-violet-300"></i><p class="text-xs text-slate-400 mt-3">Export</p><p class="text-sm font-bold text-white mt-1">Leads + Outreach</p></div>
+                    </div>
+                    <div class="mt-5 rounded-2xl border border-slate-800 bg-black/20 p-4 font-mono text-xs text-slate-400 space-y-2"><p><span class="text-emerald-400">PASS</span> Live dashboard loaded in browser verification</p><p><span class="text-emerald-400">PASS</span> API health responds with status: ok</p><p><span class="text-emerald-400">PASS</span> Auth, credits, BYOK, and Sheet routes are available</p></div>
+                </div>
+                <div class="rounded-3xl border border-slate-800 bg-gradient-to-b from-indigo-950/40 to-slate-900/80 p-6"><p class="text-xs uppercase tracking-wider text-slate-500">Designed for proof</p><h3 class="text-xl font-bold text-white mt-2">No black-box promises.</h3><p class="text-sm text-slate-400 leading-7 mt-3">The dashboard shows progress, candidate counts, verification status, sync state, and a copy-ready draft for every lead.</p><div class="flex flex-wrap gap-2 mt-5"><span class="rounded-full bg-cyan-400/10 px-3 py-1.5 text-xs text-cyan-300">Mobile ready</span><span class="rounded-full bg-emerald-400/10 px-3 py-1.5 text-xs text-emerald-300">Public data only</span><span class="rounded-full bg-violet-400/10 px-3 py-1.5 text-xs text-violet-300">AI-assisted</span></div></div>
+            </div>
+        </section>
+
+        <!-- Public Reviews -->
+        <section id="reviews" class="mb-12 scroll-mt-24">
+            <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-5"><div><p class="text-xs uppercase tracking-[0.25em] text-violet-300 font-semibold">Client voice</p><h2 class="text-3xl font-extrabold text-white mt-2">Reviews from the people using the workflow.</h2><p class="text-sm text-slate-400 mt-2">Reviews are submitted by signed-in users and shown publicly after submission.</p></div><button @click="openReviewModal" class="inline-flex items-center justify-center gap-2 rounded-xl border border-violet-400/30 bg-violet-400/10 px-4 py-3 text-xs font-bold text-violet-200 hover:bg-violet-400/20 transition"><i class="fa-solid fa-pen"></i> Leave a review</button></div>
+            <div x-show="reviews.length" class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <template x-for="review in reviews" :key="review.id"><article class="rounded-2xl border border-slate-800 bg-slate-900/75 p-5"><div class="flex items-center justify-between"><div class="flex text-amber-300 text-xs"><template x-for="star in 5" :key="star"><i class="fa-solid fa-star" :class="star <= review.rating ? '' : 'opacity-20'"></i></template></div><span class="text-[11px] text-slate-500" x-text="formatReviewDate(review.created_at)"></span></div><p class="text-sm text-slate-300 leading-7 mt-4" x-text="'“' + review.message + '”'"></p><p class="text-sm font-bold text-white mt-4" x-text="review.display_name"></p><p class="text-xs text-slate-500" x-text="review.role || 'NexusLeads client'"></p></article></template>
+            </div>
+            <div x-show="!reviews.length" class="rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 p-8 text-center"><i class="fa-regular fa-message text-2xl text-slate-600"></i><p class="text-sm font-semibold text-slate-300 mt-3">Be the first public client review.</p><p class="text-xs text-slate-500 mt-1">Complete one successful collection, then tell the next visitor what worked.</p></div>
+        </section>
+
+        <!-- Pricing & Payments -->
+        <section id="pricing" class="mb-12 scroll-mt-24">
+            <div class="text-center max-w-2xl mx-auto mb-6"><p class="text-xs uppercase tracking-[0.25em] text-amber-300 font-semibold">Simple access</p><h2 class="text-3xl font-extrabold text-white mt-2">Start free, then choose your control level.</h2><p class="text-sm text-slate-400 mt-2">The PayPal option is live now. Other payment methods will be added later.</p></div>
+            <div class="grid md:grid-cols-2 gap-5 max-w-4xl mx-auto">
+                <div class="rounded-3xl border border-cyan-400/20 bg-slate-900/80 p-7"><p class="text-xs uppercase tracking-wider text-cyan-300 font-semibold">Free tier</p><h3 class="text-3xl font-extrabold text-white mt-2">100 leads <span class="text-sm font-medium text-slate-500">/ day</span></h3><p class="text-sm text-slate-400 leading-7 mt-3">Use the complete dashboard with daily credits, verified-only mode, Auto-Push, and clean two-tab exports.</p><button @click="showAuthModal = true; authMode = 'signup'" class="w-full mt-6 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-3 text-sm font-bold text-cyan-200 hover:bg-cyan-400/20 transition">Create free account</button></div>
+                <div class="rounded-3xl border border-amber-400/30 bg-gradient-to-br from-amber-950/30 via-indigo-950/30 to-slate-900/90 p-7"><div class="flex items-center justify-between"><p class="text-xs uppercase tracking-wider text-amber-300 font-semibold">Pro access</p><i class="fa-solid fa-crown text-amber-300"></i></div><h3 class="text-3xl font-extrabold text-white mt-2">$169 <span class="text-sm font-medium text-slate-500">/ month</span></h3><p class="text-sm text-slate-400 leading-7 mt-3">Managed API access, expanded usage, and priority workflow support. BYOK users can use the $5/month tool fee model.</p><a href="https://www.paypal.me/Connectwithbayezid" target="_blank" rel="noopener noreferrer" class="w-full mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-[#0070ba] px-4 py-3 text-sm font-bold text-white shadow-lg shadow-sky-950/40 hover:bg-[#005ea6] transition"><i class="fa-brands fa-paypal text-lg"></i> Pay with PayPal</a><p class="text-[11px] text-slate-500 text-center mt-3">Secure redirect: paypal.me/Connectwithbayezid</p><p class="text-[11px] text-slate-500 text-center mt-1">Other payment methods: coming soon</p></div>
+            </div>
+        </section>
     </main>
 
     <!-- Footer -->
@@ -391,11 +470,11 @@
             <div class="space-y-4 text-sm text-slate-300">
                 <p class="text-xs text-slate-400">You may provide your own Google Maps API key and/or your own Google Sheets service-account JSON. Credentials are sent over HTTPS and encrypted on Cloudflare; raw values are never saved in browser storage.</p>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-300 mb-1">Google Maps API Key (New, optional)</label>
+                    <div class="flex items-center justify-between mb-1"><label class="block text-xs font-semibold text-slate-300">Google Maps API Key (New, optional)</label><a href="https://console.cloud.google.com/google/maps-apis/credentials" target="_blank" rel="noopener noreferrer" class="text-[11px] text-cyan-300 hover:text-cyan-200 underline">Get Maps key <i class="fa-solid fa-arrow-up-right-from-square ml-1"></i></a></div>
                     <input type="password" x-model="byokMapsKey" placeholder="AIzaSy..." class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-indigo-500">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-300 mb-1">Google Sheets Service Account JSON (optional)</label>
+                    <div class="flex items-center justify-between mb-1"><label class="block text-xs font-semibold text-slate-300">Google Sheets Service Account JSON (optional)</label><a href="https://console.cloud.google.com/iam-admin/serviceaccounts" target="_blank" rel="noopener noreferrer" class="text-[11px] text-cyan-300 hover:text-cyan-200 underline">Open Service Accounts <i class="fa-solid fa-arrow-up-right-from-square ml-1"></i></a></div>
                     <textarea x-model="byokServiceJson" rows="5" placeholder='Paste the complete service-account JSON object here' class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 text-xs font-mono focus:outline-none focus:border-indigo-500"></textarea>
                     <p class="text-[11px] text-slate-500 mt-1">The JSON must contain <code>client_email</code> and <code>private_key</code>. Then share the Sheet with the returned service-account email as Editor.</p>
                 </div>
@@ -428,14 +507,31 @@
                 </div>
                 <div x-show="authError" x-text="authError" class="text-xs text-rose-400 bg-rose-500/10 p-2.5 rounded border border-rose-500/20"></div>
                 <div class="mt-6 flex items-center justify-between">
-                    <button type="button" @click="authMode = authMode === 'login' ? 'signup' : 'login'" class="text-xs text-cyan-400 hover:underline">
-                        <span x-text="authMode === 'login' ? 'Need an account? Sign up' : 'Have an account? Log in'"></span>
-                    </button>
-                    <button type="submit" :disabled="authLoading" class="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-indigo-600 text-white text-xs font-bold rounded-lg shadow-lg hover:shadow-cyan-500/20 transition disabled:opacity-50">
-                        <span x-text="authLoading ? 'Please wait...' : (authMode === 'login' ? 'Log In' : 'Create Account')"></span>
-                    </button>
+                    <button type="button" @click="authMode = authMode === 'login' ? 'signup' : 'login'" class="text-xs text-cyan-400 hover:underline"><span x-text="authMode === 'login' ? 'Need an account? Sign up' : 'Have an account? Log in'"></span></button>
+                    <button type="submit" :disabled="authLoading" class="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-indigo-600 text-white text-xs font-bold rounded-lg shadow-lg hover:shadow-cyan-500/20 transition disabled:opacity-50"><span x-text="authLoading ? 'Please wait...' : (authMode === 'login' ? 'Log In' : 'Create Account')"></span></button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- One-time successful collection popup -->
+    <div x-show="showSuccessPopup" class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/85 backdrop-blur-sm p-4" style="display: none;">
+        <div @click.away="dismissSuccessPopup" class="bg-slate-900 border border-emerald-400/30 rounded-3xl max-w-lg w-full p-7 shadow-2xl relative overflow-hidden">
+            <div class="absolute -right-14 -top-14 h-44 w-44 rounded-full bg-emerald-400/10 blur-3xl pointer-events-none"></div>
+            <div class="relative"><div class="flex items-center justify-between"><div class="flex items-center gap-3"><span class="h-11 w-11 rounded-2xl bg-emerald-400/15 flex items-center justify-center text-emerald-300"><i class="fa-solid fa-check"></i></span><div><p class="text-xs uppercase tracking-wider text-emerald-300 font-semibold">Collection complete</p><h2 class="text-xl font-extrabold text-white">Help the next visitor trust the workflow.</h2></div></div><button @click="dismissSuccessPopup" class="text-slate-500 hover:text-white"><i class="fa-solid fa-xmark"></i></button></div>
+                <p class="text-sm text-slate-400 leading-7 mt-5">Would you like to join the NexusLeads updates list and leave a short review? Your review will appear in the public Client Voice section.</p>
+                <form @submit.prevent="submitNewsletter" class="mt-5 flex flex-col sm:flex-row gap-2"><input type="email" x-model="newsletterEmail" required placeholder="you@company.com" class="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-cyan-400"><button type="submit" :disabled="newsletterSubmitting" class="rounded-xl bg-cyan-500 px-4 py-3 text-sm font-bold text-slate-950 hover:bg-cyan-400 transition disabled:opacity-60"><span x-text="newsletterSubmitting ? 'Saving...' : 'Join updates'"></span></button></form>
+                <div class="flex items-center justify-between mt-4"><button @click="openReviewModal" class="text-xs font-semibold text-violet-300 hover:text-violet-200">Leave a review now <i class="fa-solid fa-arrow-right ml-1"></i></button><button @click="dismissSuccessPopup" class="text-xs text-slate-500 hover:text-slate-300">Maybe later</button></div>
+                <p x-show="newsletterStatus" x-text="newsletterStatus" class="text-xs text-emerald-300 mt-3"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Review submission modal -->
+    <div x-show="showReviewModal" class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/85 backdrop-blur-sm p-4" style="display: none;">
+        <div @click.away="showReviewModal = false" class="bg-slate-900 border border-violet-400/30 rounded-3xl max-w-lg w-full p-7 shadow-2xl">
+            <div class="flex items-center justify-between mb-5"><div><p class="text-xs uppercase tracking-wider text-violet-300 font-semibold">Client voice</p><h2 class="text-xl font-extrabold text-white mt-1">Share your experience</h2></div><button @click="showReviewModal = false" class="text-slate-500 hover:text-white"><i class="fa-solid fa-xmark"></i></button></div>
+            <form @submit.prevent="submitReview" class="space-y-4"><div class="grid sm:grid-cols-2 gap-3"><div><label class="block text-xs text-slate-400 mb-1">Display name</label><input type="text" x-model="reviewName" required maxlength="80" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-white focus:outline-none focus:border-violet-400"></div><div><label class="block text-xs text-slate-400 mb-1">Role / business (optional)</label><input type="text" x-model="reviewRole" maxlength="100" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-white focus:outline-none focus:border-violet-400"></div></div><div><label class="block text-xs text-slate-400 mb-1">Rating</label><select x-model="reviewRating" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-white focus:outline-none focus:border-violet-400"><option value="5">5 — Excellent</option><option value="4">4 — Very good</option><option value="3">3 — Good</option><option value="2">2 — Needs improvement</option><option value="1">1 — Not ready yet</option></select></div><div><label class="block text-xs text-slate-400 mb-1">Your review</label><textarea x-model="reviewMessage" required minlength="12" maxlength="600" rows="4" placeholder="What worked well for your lead research?" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-violet-400"></textarea></div><p x-show="reviewError" x-text="reviewError" class="text-xs text-rose-300"></p><div class="flex items-center justify-end gap-3"><button type="button" @click="showReviewModal = false" class="rounded-xl bg-slate-800 px-4 py-3 text-xs font-semibold text-slate-300">Cancel</button><button type="submit" :disabled="reviewSubmitting" class="rounded-xl bg-violet-500 px-5 py-3 text-xs font-bold text-white hover:bg-violet-400 transition disabled:opacity-60"><span x-text="reviewSubmitting ? 'Publishing...' : 'Publish review'"></span></button></div></form>
         </div>
     </div>
 
@@ -457,6 +553,18 @@
                 showPricingModal: false,
                 showByokModal: false,
                 showAuthModal: false,
+                showSuccessPopup: false,
+                showReviewModal: false,
+                newsletterEmail: '',
+                newsletterSubmitting: false,
+                newsletterStatus: '',
+                reviews: [],
+                reviewName: '',
+                reviewRole: '',
+                reviewRating: 5,
+                reviewMessage: '',
+                reviewSubmitting: false,
+                reviewError: '',
                 authMode: 'login',
                 authEmail: '',
                 authPassword: '',
@@ -567,6 +675,7 @@
                         }
                         const verificationMessage = this.verifiedOnly && this.leads.length < Number(this.maxResults) ? ` Verified results available: ${verified.length}; uncheck “Verified leads only” if you want all public listings.` : '';
                         this.message = sheetMessage + verificationMessage;
+                        if (this.leads.length > 0) this.maybeShowSuccessPopup();
                     } catch (err) {
                         console.error(err);
                         this.progress = 0;
@@ -616,6 +725,76 @@
                     } catch (e) {
                         console.warn('Could not load daily credits', e);
                     }
+                    await this.loadReviews();
+                },
+                async loadReviews() {
+                    try {
+                        const res = await fetch(this.apiBase + '/api/reviews');
+                        const data = await res.json();
+                        if (res.ok && data.success) this.reviews = data.reviews || [];
+                    } catch (error) {
+                        console.warn('Could not load public reviews.');
+                    }
+                },
+                maybeShowSuccessPopup() {
+                    if (localStorage.getItem('nexusleads-success-popup-shown') === '1') return;
+                    localStorage.setItem('nexusleads-success-popup-shown', '1');
+                    this.newsletterEmail = this.currentUser?.email || '';
+                    this.showSuccessPopup = true;
+                },
+                dismissSuccessPopup() {
+                    this.showSuccessPopup = false;
+                },
+                openReviewModal() {
+                    if (!this.authToken || !this.currentUser) {
+                        this.showSuccessPopup = false;
+                        this.authMode = 'login';
+                        this.showAuthModal = true;
+                        this.message = 'Log in to publish a public client review.';
+                        return;
+                    }
+                    this.showSuccessPopup = false;
+                    this.reviewName = this.reviewName || this.currentUser.email.split('@')[0];
+                    this.showReviewModal = true;
+                },
+                async submitNewsletter() {
+                    this.newsletterSubmitting = true;
+                    this.newsletterStatus = '';
+                    try {
+                        const headers = { 'Content-Type': 'application/json' };
+                        if (this.authToken) headers['Authorization'] = 'Bearer ' + this.authToken;
+                        const res = await fetch(this.apiBase + '/api/newsletter', { method: 'POST', headers, body: JSON.stringify({ email: this.newsletterEmail, source: 'successful_collection_popup' }) });
+                        const data = await res.json();
+                        if (!res.ok || !data.success) throw new Error(data.error || 'Newsletter signup failed.');
+                        this.newsletterStatus = data.message || 'You are subscribed.';
+                        this.newsletterEmail = '';
+                    } catch (error) {
+                        this.newsletterStatus = error.message;
+                    } finally {
+                        this.newsletterSubmitting = false;
+                    }
+                },
+                async submitReview() {
+                    if (!this.authToken) { this.openReviewModal(); return; }
+                    this.reviewSubmitting = true;
+                    this.reviewError = '';
+                    try {
+                        const res = await fetch(this.apiBase + '/api/reviews', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.authToken }, body: JSON.stringify({ display_name: this.reviewName, role: this.reviewRole, rating: Number(this.reviewRating), message: this.reviewMessage }) });
+                        const data = await res.json();
+                        if (!res.ok || !data.success) throw new Error(data.error || 'Review submission failed.');
+                        if (data.review) this.reviews = [data.review, ...this.reviews];
+                        this.showReviewModal = false;
+                        this.reviewMessage = '';
+                        this.message = 'Thank you. Your review is now visible in Client Voice.';
+                    } catch (error) {
+                        this.reviewError = error.message;
+                    } finally {
+                        this.reviewSubmitting = false;
+                    }
+                },
+                formatReviewDate(value) {
+                    if (!value) return '';
+                    try { return new Date(value).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }); } catch { return ''; }
                 },
                 async loadAccountStatus() {
                     if (!this.authToken) return;

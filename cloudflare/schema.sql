@@ -60,3 +60,29 @@ CREATE TABLE IF NOT EXISTS search_runs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_search_runs_user_created ON search_runs(user_id, created_at);
+
+
+CREATE TABLE IF NOT EXISTS public_reviews (
+  id TEXT PRIMARY KEY,
+  user_id TEXT,
+  display_name TEXT NOT NULL,
+  role TEXT,
+  rating INTEGER NOT NULL DEFAULT 5,
+  message TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'published',
+  created_at TEXT NOT NULL,
+  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_public_reviews_status_created ON public_reviews(status, created_at);
+
+CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+  email TEXT PRIMARY KEY,
+  user_id TEXT,
+  source TEXT,
+  created_at TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_newsletter_subscribers_created ON newsletter_subscribers(created_at);

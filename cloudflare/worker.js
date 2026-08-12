@@ -322,6 +322,35 @@ async function handleSheetAccessCheck(request, env) {
   }
 }
 
+async function handlePublicReviews(request, env) {
+  if (!env.NEXUS_DB) return json({ success: true, reviews: [] });
+  if (request.method === "GET") {
+    const rows = await env.NEXUS_DB.prepare("SELECT id, display_name, role, rating, message, created_at FROM public_reviews WHERE status = 'published' ORDER BY created_at DESC LIMIT 24").all();
+    return json({ success: true, reviews: rows.results || [] });
+  }
+  const user = await sessionUser(request, env);
+  if (!user) return json({ success: false, code: "AUTH_REQUIRED", error: "Please log in before submitting a review." }, 401);
+  const body = await request.json().catch(() => null);
+  const displayName = String(body?.display_name || user.email.split("@")[0] || "NexusLeads client").trim().slice(0, 80);
+  const role = String(body?.role || "").trim().slice(0, 100);
+  const message = String(body?.message || "").trim().slice(0, 600);
+  const rating = Math.min(5, Math.max(1, Number(body?.rating) || 5));
+  if (message.length < 12) return json({ success: false, error: "Please write at least 12 characters for your review." }, 400);
+  const id = crypto.randomUUID();
+  await env.NEXUS_DB.prepare("INSERT INTO public_reviews (id, user_id, display_name, role, rating, message, status, created_at) VALUES (?, ?, ?, ?, ?, ?, 'published', ?)").bind(id, user.id, displayName, role, rating, message, new Date().toISOString()).run();
+  return json({ success: true, review: { id, display_name: displayName, role, rating, message } });
+}
+
+async function handleNewsletterSubscribe(request, env) {
+  const body = await request.json().catch(() => null);
+  const email = normalizeEmail(body?.email);
+  if (!email) return json({ success: false, error: "Provide a valid email address." }, 400);
+  if (!env.NEXUS_DB) return json({ success: false, error: "Newsletter storage is not configured." }, 503);
+  const user = await sessionUser(request, env).catch(() => null);
+  await env.NEXUS_DB.prepare("INSERT INTO newsletter_subscribers (email, user_id, source, created_at, status) VALUES (?, ?, ?, ?, 'active') ON CONFLICT(email) DO UPDATE SET user_id = COALESCE(excluded.user_id, newsletter_subscribers.user_id), source = excluded.source, status = 'active'").bind(email, user?.id || null, String(body?.source || "success_popup").slice(0, 60), new Date().toISOString()).run();
+  return json({ success: true, message: "You are subscribed to NexusLeads updates." });
+}
+
 async function handleSignup(request, env) {
   if (!env.NEXUS_DB) return json({ success: false, error: "Account database is not configured" }, 503);
   const body = await request.json().catch(() => null);
@@ -1062,14 +1091,17 @@ export default {
     try {
       let response;
       if (request.method === "GET" && url.pathname === "/") response = json({ service: "NexusLeads API", status: "online", version: "1.0.0" });
-      else if (request.method === "GET" && url.pathname === "/api/health") response = json({ status: "ok", providers: { google_places: Boolean(env.GOOGLE_MAP_API_NEW), google_places_keys: getGoogleMapsApiKeys(env).length, firecrawl: Boolean(env.FIRECRAWL_API_KEY), gemini: Boolean(env.GEMINI_API_KEY || env.GEMINI_OUTREACH_API_KEY), google_sheets: Boolean(env.GOOGLE_SERVICE_ACCOUNT_JSON || env.GOOGLESERVICES_JSON) }, auth: { database: Boolean(env.NEXUS_DB), credential_encryption: Boolean(env.NEXUS_CREDENTIALS_KEY) }, credits: { daily_free_leads: DAILY_FREE_LEAD_LIMIT, storage: env.NEXUS_CREDITS ? "kv" : "unavailable" }, routes: { signup: "/api/auth/signup", login: "/api/auth/login", me: "/api/auth/me", credentials: "/api/account/credentials", discover: "/api/discover", enrich: "/api/enrich", export: "/api/export", usage: "/api/usage", pricing: "/api/pricing" }, outreach_skills: Object.entries(OUTREACH_SKILLS).map(([key, value]) => ({ key, label: value.label })) });
+      else if (request.method === "GET" && url.pathname === "/api/health") response = json({ status: "ok", providers: { google_places: Boolean(env.GOOGLE_MAP_API_NEW), google_places_keys: getGoogleMapsApiKeys(env).length, firecrawl: Boolean(env.FIRECRAWL_API_KEY), gemini: Boolean(env.GEMINI_API_KEY || env.GEMINI_OUTREACH_API_KEY), google_sheets: Boolean(env.GOOGLE_SERVICE_ACCOUNT_JSON || env.GOOGLESERVICES_JSON) }, auth: { database: Boolean(env.NEXUS_DB), credential_encryption: Boolean(env.NEXUS_CREDENTIALS_KEY) }, credits: { daily_free_leads: DAILY_FREE_LEAD_LIMIT, storage: env.NEXUS_CREDITS ? "kv" : "unavailable" }, routes: { signup: "/api/auth/signup", login: "/api/auth/login", me: "/api/auth/me", credentials: "/api/account/credentials", discover: "/api/discover", enrich: "/api/enrich", export: "/api/export", usage: "/api/usage", pricing: "/api/pricing", reviews: "/api/reviews", newsletter: "/api/newsletter" }, outreach_skills: Object.entries(OUTREACH_SKILLS).map(([key, value]) => ({ key, label: value.label })) });
       else if (request.method === "GET" && url.pathname === "/api/pricing") response = await handlePricing();
+      else if (request.method === "GET" && url.pathname === "/api/reviews") response = await handlePublicReviews(request, env);
       else if (request.method === "GET" && url.pathname === "/api/usage") response = await handleUsage(request, env);
       else if (request.method === "GET" && url.pathname === "/api/auth/me") response = await handleMe(request, env);
       else if (request.method === "GET" && url.pathname === "/api/account/credentials") response = await handleCredentialStatus(request, env);
       else if (request.method === "POST" && url.pathname === "/api/auth/signup") response = await handleSignup(request, env);
       else if (request.method === "POST" && url.pathname === "/api/auth/login") response = await handleLogin(request, env);
       else if (request.method === "POST" && url.pathname === "/api/auth/logout") response = await handleLogout(request, env);
+      else if (request.method === "POST" && url.pathname === "/api/reviews") response = await handlePublicReviews(request, env);
+      else if (request.method === "POST" && url.pathname === "/api/newsletter") response = await handleNewsletterSubscribe(request, env);
       else if (request.method === "POST" && url.pathname === "/api/account/credentials") response = await handleCredentialSave(request, env);
       else if (request.method === "POST" && url.pathname === "/api/account/sheet-check") response = await handleSheetAccessCheck(request, env);
       else if (request.method === "POST" && url.pathname === "/api/discover") response = await handleDiscover(request, env);
