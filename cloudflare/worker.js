@@ -350,7 +350,7 @@ async function googlePlacesSearch(keyword, location, maxResults, env) {
     const lead = {
       name: place.displayName?.text || "Unnamed business",
       category: (place.types || []).filter(t => !["point_of_interest", "establishment"].includes(t))[0] || keyword,
-      phone: place.internationalPhoneNumber ? `\u200B${place.internationalPhoneNumber}` : null,
+      phone: place.internationalPhoneNumber ? `'${place.internationalPhoneNumber}` : null,
       email: null,
       address: place.formattedAddress || location,
       website,
