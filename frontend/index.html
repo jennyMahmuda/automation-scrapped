@@ -71,12 +71,12 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Google Sheet Name</label>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Google Sheet URL / ID</label>
                     <div class="relative">
                         <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
-                            <i class="fa-solid fa-file-excel"></i>
+                            <i class="fa-solid fa-link"></i>
                         </span>
-                        <input type="text" x-model="sheetName" placeholder="Leads-Austin-Dental" 
+                        <input type="text" x-model="sheetId" placeholder="https://docs.google.com/spreadsheets/d/..." 
                             class="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
                     </div>
                 </div>
@@ -166,7 +166,7 @@
             return {
                 keyword: '',
                 location: '',
-                sheetName: 'NexusLeads-Database',
+                sheetId: '',
                 loading: false,
                 leads: [],
                 message: '',
@@ -181,7 +181,7 @@
                             body: JSON.stringify({
                                 keyword: this.keyword,
                                 location: this.location,
-                                sheet_id: '',
+                                sheet_id: this.sheetId,
                                 sheet_tab: 'Leads',
                                 max_results: 20,
                                 enrich_with_ai: true,

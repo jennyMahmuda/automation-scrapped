@@ -95,8 +95,14 @@ async function googleAccessToken(serviceAccountJson) {
   return tokenData.access_token;
 }
 
+function extractSheetId(input) {
+  if (!input || typeof input !== "string") return null;
+  const match = input.match(/\/d\/([a-zA-Z0-9-_]+)/);
+  return match ? match[1] : input.trim();
+}
+
 async function appendToGoogleSheet(leads, requestBody, env) {
-  const sheetId = requestBody.sheet_id || env.GOOGLE_SHEET_ID;
+  const sheetId = extractSheetId(requestBody.sheet_id) || env.GOOGLE_SHEET_ID;
   const sheetTab = requestBody.sheet_tab || env.GOOGLE_SHEET_TAB || "Leads";
   const serviceAccount = env.GOOGLE_SERVICE_ACCOUNT_JSON || env.GOOGLESERVICES_JSON;
   if (!sheetId || !serviceAccount) return { exported: false, reason: "Google Sheet ID or service-account secret is not configured" };
