@@ -37,7 +37,7 @@ To enable automated deployment and secret synchronization, add the following sec
 | `GEMINI_API_KEY` | AI classification and lead fit scoring |
 | `GEEKFLARE_API_KEY` | Optional security/meta scanning credential |
 
-Once added, pushing any update to your repository will automatically deploy your Worker and sync all secrets securely without ever exposing them in your codebase.
+Note: I have already securely provisioned your `GOOGLE_SERVICE_ACCOUNT_JSON` directly on your Cloudflare Worker. You only need to add the remaining secrets in GitHub to enable full CI/CD synchronization.
 
 The Google service account JSON is entered as one complete JSON value when prompted. The spreadsheet must be shared with the service-account email address with Editor permission. The API server writes to the `Leads` tab by default and includes a header row with business name, category, phone, email, address, website, rating, verification, source, and collection time.
 
