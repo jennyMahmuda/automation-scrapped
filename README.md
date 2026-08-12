@@ -16,14 +16,10 @@ NexusLeads is a premium lead-research application with a responsive GitHub Pages
 
 ## Cloudflare backend deployment
 
-The production backend is the Worker named `nexusleads-api`. The Worker exposes `GET /api/health` and `POST /api/scrape`.
+The production backend is successfully deployed as a Cloudflare Worker named `nexusleads-api` at:
+`https://nexusleads-api.mahmudajenny6.workers.dev`
 
-To deploy from a machine with Wrangler and the Cloudflare account selected, run:
-
-```bash
-cd cloudflare
-npx wrangler deploy
-```
+It exposes `GET /api/health` and `POST /api/scrape`.
 
 The Worker is configured for a `workers.dev` endpoint. Cloudflare Python Workers are currently in open beta and require a special compatibility flag; this project therefore keeps the production edge handler in the stable JavaScript module Worker runtime while retaining `backend/main.py` for local Python development. This avoids claiming that the Python development server is itself the deployed edge runtime.
 
