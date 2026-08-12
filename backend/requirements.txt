@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+httpx
+pydantic
+gspread
+google-auth
+requests
+beautifulsoup4
+playwright

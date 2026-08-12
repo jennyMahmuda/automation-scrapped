@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexusLeads - AI-Powered B2B Lead Scraper & Verifier</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    </style>
+</head>
+<body class="h-full text-slate-100 flex flex-col justify-between" x-data="leadApp()">
+    <!-- Header -->
+    <header class="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                    <i class="fa-solid fa-radar text-white text-lg animate-pulse"></i>
+                </div>
+                <span class="text-xl font-bold bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">NexusLeads</span>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 mr-2 animate-ping"></span> Cloudflare & Sheets Connected
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full flex-grow">
+        <!-- Hero Section -->
+        <div class="text-center max-w-3xl mx-auto mb-12">
+            <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight mb-4 bg-gradient-to-r from-white via-indigo-100 to-slate-400 bg-clip-text text-transparent">
+                Intelligent B2B Lead Generation
+            </h1>
+            <p class="text-slate-400 text-lg">
+                Extract, verify, and export high-converting leads instantly with automated Google Sheets synchronization.
+            </p>
+        </div>
+
+        <!-- Search Card -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl mb-10 relative overflow-hidden">
+            <div class="absolute -right-20 -top-20 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+            
+            <form @submit.prevent="searchLeads" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Keyword / Industry</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                            <i class="fa-solid fa-briefcase"></i>
+                        </span>
+                        <input type="text" x-model="keyword" required placeholder="e.g. Dental Clinic, SaaS" 
+                            class="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Location</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                            <i class="fa-solid fa-location-dot"></i>
+                        </span>
+                        <input type="text" x-model="location" required placeholder="e.g. Austin, TX" 
+                            class="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Google Sheet Name</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                            <i class="fa-solid fa-file-excel"></i>
+                        </span>
+                        <input type="text" x-model="sheetName" placeholder="Leads-Austin-Dental" 
+                            class="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
+                    </div>
+                </div>
+
+                <div class="sm:col-span-3 flex justify-end mt-2">
+                    <button type="submit" :disabled="loading" 
+                        class="px-8 py-3.5 bg-gradient-to-r from-indigo-600 to-cyan-500 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition flex items-center space-x-2 disabled:opacity-50">
+                        <i class="fa-solid fa-wand-magic-sparkles" :class="{'fa-spin': loading}"></i>
+                        <span x-text="loading ? 'Scraping & Verifying Leads...' : 'Start Lead Generation'"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Results Section -->
+        <div x-show="leads.length > 0 || loading" class="space-y-6">
+            <div class="flex items-center justify-between">
+                <h2 class="text-xl font-bold flex items-center space-x-2">
+                    <i class="fa-solid fa-list-check text-indigo-400"></i>
+                    <span>Discovered Leads</span>
+                    <span class="text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 ml-2" x-text="leads.length"></span>
+                </h2>
+                <button @click="exportCSV" x-show="leads.length > 0" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium rounded-lg transition flex items-center space-x-2">
+                    <i class="fa-solid fa-download"></i>
+                    <span>Export CSV</span>
+                </button>
+            </div>
+
+            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl shadow-xl overflow-hidden backdrop-blur-xl">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-800 text-xs font-semibold uppercase tracking-wider text-slate-400 bg-slate-950/50">
+                                <th class="p-4">Business Name</th>
+                                <th class="p-4">Category</th>
+                                <th class="p-4">Phone</th>
+                                <th class="p-4">Address</th>
+                                <th class="p-4">Website</th>
+                                <th class="p-4">Rating</th>
+                                <th class="p-4">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800 text-sm">
+                            <template x-for="lead in leads" :key="lead.name">
+                                <tr class="hover:bg-slate-800/50 transition">
+                                    <td class="p-4 font-semibold text-white" x-text="lead.name"></td>
+                                    <td class="p-4 text-slate-300" x-text="lead.category"></td>
+                                    <td class="p-4 text-slate-300" x-text="lead.phone"></td>
+                                    <td class="p-4 text-slate-400" x-text="lead.address"></td>
+                                    <td class="p-4">
+                                        <a :href="lead.website" target="_blank" class="text-indigo-400 hover:underline flex items-center space-x-1" x-show="lead.website !== 'N/A'">
+                                            <span x-text="lead.website"></span>
+                                            <i class="fa-solid fa-external-link text-xs"></i>
+                                        </a>
+                                        <span x-show="lead.website === 'N/A'" class="text-slate-600">N/A</span>
+                                    </td>
+                                    <td class="p-4">
+                                        <span class="inline-flex items-center text-amber-400 font-medium">
+                                            <i class="fa-solid fa-star mr-1 text-xs"></i> <span x-text="lead.rating"></span>
+                                        </span>
+                                    </td>
+                                    <td class="p-4">
+                                        <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" x-text="lead.status"></span>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800 bg-slate-900/50 py-6 text-center text-slate-500 text-xs">
+        <p>&copy; 2026 NexusLeads. Securely powered by Cloudflare Backend & GitHub Pages Frontend.</p>
+    </footer>
+
+    <script>
+        function leadApp() {
+            return {
+                keyword: '',
+                location: '',
+                sheetName: 'NexusLeads-Database',
+                loading: false,
+                leads: [],
+                async searchLeads() {
+                    this.loading = true;
+                    try {
+                        // Change backend URL as needed or point to Cloudflare Worker endpoint
+                        const response = await fetch('http://localhost:8000/api/scrape', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                keyword: this.keyword,
+                                location: this.location,
+                                sheet_name: this.sheetName
+                            })
+                        });
+                        const data = await response.json();
+                        if (data.success) {
+                            this.leads = data.leads;
+                        } else {
+                            alert('Scraping failed: ' + (data.detail || 'Unknown error'));
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        alert('Connection error with backend service.');
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                exportCSV() {
+                    let csv = 'Name,Category,Phone,Address,Website,Rating,Status\\n';
+                    this.leads.forEach(l => {
+                        csv += `"${l.name}","${l.category}","${l.phone}","${l.address}","${l.website}",${l.rating},"${l.status}"\\n`;
+                    });
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.setAttribute('href', url);
+                    a.setAttribute('download', 'leads_export.csv');
+                    a.click();
+                }
+            }
+        }
+    </script>
+</body>
+</html>
