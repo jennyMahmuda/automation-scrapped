@@ -160,6 +160,21 @@
                 </div>
 
                 <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Max Leads per Search</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-amber-400"><i class="fa-solid fa-layer-group"></i></span>
+                        <select x-model.number="maxResults" class="w-full pl-10 pr-4 py-3 bg-slate-950 border border-amber-500/30 rounded-xl text-slate-100 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition">
+                            <option :value="20">20 leads</option>
+                            <option :value="25">25 leads</option>
+                            <option :value="30">30 leads</option>
+                            <option :value="40">40 leads</option>
+                            <option :value="50">50 leads</option>
+                        </select>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-1">The system searches up to 120 public candidates and enriches them in safe five-lead batches.</p>
+                </div>
+
+                <div>
                     <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Google Sheet URL / ID</label>
                     <div class="relative">
                         <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
@@ -310,6 +325,7 @@
                 location: '',
                 sheetId: '',
                 autoPushEnabled: true,
+                maxResults: 20,
                 verifiedOnly: true,
                 loading: false,
                 manualPushLoading: false,
@@ -320,6 +336,16 @@
                 activity: [{ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: 'Dashboard ready for a new research run.' }],
                 metrics: { found: 0, verified: 0, emails: 0, sheet: 'Waiting' },
                 apiBase: (document.querySelector('meta[name="nexus-api-base"]')?.content || window.NEXUS_API_BASE || 'http://localhost:8787').replace(/\/$/, ''),
+                async postJson(path, payload) {
+                    const response = await fetch(this.apiBase + path, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok || !data.success) throw new Error(data.error || 'The backend request failed.');
+                    return data;
+                },
                 async searchLeads() {
                     if (!this.prompt.trim() && (!this.keyword.trim() || !this.location.trim())) {
                         this.message = 'Enter an AI research prompt, or provide both a keyword and location.';
@@ -331,69 +357,78 @@
                     }
                     this.loading = true;
                     this.message = '';
-                    this.progress = 10;
+                    this.progress = 5;
                     this.stage = 1;
                     this.metrics = { found: 0, verified: 0, emails: 0, sheet: this.autoPushEnabled ? 'Preparing' : 'Manual mode' };
                     const runLabel = this.prompt.trim() || `${this.keyword} near ${this.location}`;
-                    this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: `Starting research: ${runLabel}.` });
+                    const payload = {
+                        prompt: this.prompt,
+                        outreach_style: this.outreachStyle,
+                        draft_type: this.draftType,
+                        generate_outreach: this.generateOutreach,
+                        keyword: this.keyword,
+                        location: this.location,
+                        verified_only: this.verifiedOnly,
+                        max_results: Number(this.maxResults),
+                        enrich_with_ai: true
+                    };
+                    this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: `Starting ${this.maxResults}-lead research: ${runLabel}.` });
                     try {
-                        const response = await fetch(this.apiBase + '/api/scrape', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                prompt: this.prompt,
-                                outreach_style: this.outreachStyle,
-                                draft_type: this.draftType,
-                                generate_outreach: this.generateOutreach,
-                                keyword: this.keyword,
-                                location: this.location,
-                                verified_only: this.verifiedOnly,
-                                sheet_id: this.sheetId,
-                                leads_sheet_tab: 'Leads',
-                                outreach_sheet_tab: 'Outreach',
-                                max_results: 20,
-                                enrich_with_ai: true,
-                                auto_push: this.autoPushEnabled,
-                                export_to_sheet: this.autoPushEnabled
-                            })
-                        });
-                        this.progress = 65;
+                        const discovered = await this.postJson('/api/discover', payload);
+                        const candidates = discovered.candidates || [];
+                        this.progress = 25;
+                        this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: `Discovered ${candidates.length} candidates across Google Places query batches.` });
                         this.stage = 2;
-                        this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: 'Google Places returned businesses; verifying public details.' });
-                        const data = await response.json();
-                        if (data.success) {
-                            this.leads = data.leads.map(item => ({ ...item, selected: false }));
-                            this.metrics.found = data.leads.length;
-                            this.metrics.verified = data.leads.filter(item => item.phone && item.email).length;
-                            this.metrics.emails = data.leads.filter(item => item.email).length;
-                            this.stage = 3;
-                            this.progress = 90;
-                            this.metrics.sheet = !this.autoPushEnabled ? 'Manual mode' : (data.sheets?.exported ? 'Synced' : 'Failed');
-                            const sheetMessage = !this.autoPushEnabled ? 'Leads are ready. Select the leads you want, then use Sync Selected.' : (data.sheets?.exported ? `Leads synced to the “${data.sheets.sheet_tab || 'Leads'}” tab; contacts and drafts synced to the “${data.sheets.outreach_sheet_tab || 'Outreach'}” tab.` : (data.sheets?.reason || 'Google Sheet sync failed.'));
-                            this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: sheetMessage });
-                            const outreachMessage = data.outreach?.enabled ? ` ${data.count} ${data.outreach.draft_type || this.draftType} draft(s) prepared.` : '';
-                            this.message = sheetMessage + outreachMessage;
-                        } else {
-                            this.metrics.sheet = 'Failed';
-                            this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: data.error || 'Scraping failed.' });
-                            this.message = data.error || 'Scraping failed.';
+                        let enriched = [];
+                        for (let index = 0; index < candidates.length; index += 5) {
+                            const batch = candidates.slice(index, index + 5);
+                            const result = await this.postJson('/api/enrich', { ...payload, leads: batch, batch_index: Math.floor(index / 5) + 1 });
+                            enriched = enriched.concat(result.leads || []);
+                            this.progress = 25 + Math.round(((index + batch.length) / Math.max(candidates.length, 1)) * 55);
+                            this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: `Verified and enriched ${Math.min(index + batch.length, candidates.length)} of ${candidates.length} candidates.` });
                         }
+                        const verified = enriched.filter(item => item.phone && item.email);
+                        const finalLeads = (this.verifiedOnly ? verified : enriched).slice(0, Number(this.maxResults));
+                        this.leads = finalLeads.map(item => ({ ...item, selected: false }));
+                        this.metrics.found = this.leads.length;
+                        this.metrics.verified = verified.length;
+                        this.metrics.emails = enriched.filter(item => item.email).length;
+                        this.stage = 3;
+                        this.progress = 90;
+                        let sheetMessage;
+                        if (this.autoPushEnabled && this.leads.length > 0) {
+                            const sheetData = await this.postJson('/api/export', {
+                                sheet_id: this.sheetId,
+                                leads: this.leads,
+                                leads_sheet_tab: 'Leads',
+                                outreach_sheet_tab: 'Outreach'
+                            });
+                            this.metrics.sheet = 'Synced';
+                            sheetMessage = `Auto-Push complete: ${this.leads.length} lead(s) synced to Leads and Outreach.`;
+                            this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: sheetMessage });
+                        } else {
+                            this.metrics.sheet = 'Manual mode';
+                            sheetMessage = `Found ${this.leads.length} selected-ready lead(s) from ${candidates.length} candidates. Select leads below and use Sync Selected.`;
+                        }
+                        const verificationMessage = this.verifiedOnly && this.leads.length < Number(this.maxResults) ? ` Verified results available: ${verified.length}; uncheck “Verified leads only” if you want all public listings.` : '';
+                        this.message = sheetMessage + verificationMessage;
                     } catch (err) {
                         console.error(err);
                         this.progress = 0;
                         this.stage = 0;
                         this.metrics.sheet = 'Error';
-                        this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: 'Connection error with the Cloudflare backend.' });
-                        this.message = 'Connection error with the Cloudflare backend.';
+                        this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: err.message || 'Connection error with the Cloudflare backend.' });
+                        this.message = err.message || 'Connection error with the Cloudflare backend.';
                     } finally {
                         this.loading = false;
-                        if (this.progress === 90) this.progress = 100;
+                        if (this.progress >= 90) this.progress = 100;
                     }
                 },
                 loadSheetConfig() {
                     try {
                         const saved = JSON.parse(localStorage.getItem('nexusleads-sheet-config') || '{}');
                         if (typeof saved.sheetId === 'string') this.sheetId = saved.sheetId;
+                        if ([20, 25, 30, 40, 50].includes(Number(saved.maxResults))) this.maxResults = Number(saved.maxResults);
                         if (typeof saved.autoPush === 'boolean') this.autoPushEnabled = saved.autoPush;
                         else if (typeof saved.enabled === 'boolean') this.autoPushEnabled = saved.enabled;
                     } catch (error) {
@@ -402,7 +437,7 @@
                 },
                 saveSheetConfig() {
                     try {
-                        localStorage.setItem('nexusleads-sheet-config', JSON.stringify({ sheetId: this.sheetId, autoPush: this.autoPushEnabled }));
+                        localStorage.setItem('nexusleads-sheet-config', JSON.stringify({ sheetId: this.sheetId, autoPush: this.autoPushEnabled, maxResults: Number(this.maxResults) }));
                     } catch (error) {
                         console.warn('Google Sheets configuration could not be saved locally.');
                     }
