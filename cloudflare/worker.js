@@ -13,8 +13,22 @@ const SHEET_HEADERS = [
   "Facebook",
   "Instagram",
   "Twitter/X",
-  "LinkedIn"
+  "LinkedIn",
+  "Email Subject Draft",
+  "Email Message Draft",
+  "WhatsApp Message Draft",
+  "Personalization Note"
 ];
+
+const OUTREACH_PROFILE = {
+  sender: "Sayad Md Bayezid Hosan",
+  website: "https://sayadbayezid.com",
+  email_sender: "info@sayadbayezid.com",
+  support_cta: "support@sayadbayezid.com",
+  services: "Web platforms, full-stack Cloudflare Workers and D1 builds, technical/on-page/local SEO systems, marketing infrastructure, conversion tracking, lead systems, analytics, and product builds from idea to shipped tool.",
+  proof: "Founder-led work behind SmartGen, SmartLeadGen, and SmartLeadGen-style lead systems; claims should only be used when supported by the public website.",
+  style: "Professional, concise, human, helpful, evidence-based, and consultative. Never aggressive, deceptive, or spammy. Do not invent a problem, result, relationship, or business fact. Offer a short discovery conversation and include a respectful opt-out sentence."
+};
 
 function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
@@ -129,9 +143,13 @@ async function appendToGoogleSheet(leads, requestBody, env) {
     lead.instagram || "",
     lead.twitter || "",
     lead.linkedin || "",
+    lead.email_subject || "",
+    lead.email_draft || "",
+    lead.whatsapp_draft || "",
+    lead.personalization_note || "",
   ]);
-  const headerRange = `${sheetTab}!A1:N1`;
-  const appendRange = `${sheetTab}!A:N`;
+  const headerRange = `${sheetTab}!A1:R1`;
+  const appendRange = `${sheetTab}!A:R`;
   const headerUrl = new URL(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/${encodeURIComponent(headerRange)}`);
   headerUrl.searchParams.set("majorDimension", "ROWS");
   let headerResponse = await fetch(headerUrl, { headers: authHeaders });
@@ -337,7 +355,51 @@ async function geminiEnrichment(lead, env) {
   if (!response.ok) return {};
   const data = await response.json();
   const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-  try { return JSON.parse(raw); } catch { return {}; }
+  try {   return JSON.parse(raw); } catch { return {}; }
+}
+
+function fallbackOutreachDraft(lead, style = "") {
+  const business = lead.name || "your business";
+  const category = lead.category || "business";
+  const websiteLine = lead.website ? `I found your public website (${lead.website}) while researching ${category} businesses.` : `I found your public ${category} listing while researching businesses in the area.`;
+  const subject = `A practical digital growth idea for ${business}`;
+  const email = `Hi ${business} team,\n\n${websiteLine}\n\nI’m Sayad Md Bayezid Hosan. I help businesses build fast web platforms, SEO systems, conversion tracking, and lead infrastructure that stay fast under traffic.\n\nIf you're looking to upgrade your digital presence, feel free to reach us directly at ${OUTREACH_PROFILE.support_cta} or visit ${OUTREACH_PROFILE.website}.\n\nWould a brief 10-minute chat about your current setup be useful? If not, simply reply “not a fit” and I won’t message again.\n\nBest regards,\nSayad Md Bayezid Hosan\n${OUTREACH_PROFILE.email_sender} | ${OUTREACH_PROFILE.website}`;
+  const whatsapp = `Hi ${business} team, I’m Sayad Md Bayezid Hosan (info@sayadbayezid.com). I help ${category} businesses with web platforms, SEO, and lead systems. Thought a quick digital review might be helpful for you. If interested in chatting, reach our team at support@sayadbayezid.com or check https://sayadbayezid.com. Reply “not a fit” to opt out.`;
+  return { email_subject: subject, email_draft: email, whatsapp_draft: whatsapp, personalization_note: `Public ${category} listing${lead.address ? ` in ${lead.address}` : ""}; verify before sending. Contact: ${OUTREACH_PROFILE.email_sender}, CTA: ${OUTREACH_PROFILE.support_cta}. ${style ? "Custom style applied." : ""}` };
+}
+
+async function outreachDraftForLead(lead, env, style = "") {
+  const apiKey = env.GEMINI_OUTREACH_API_KEY || env.GEMINI_API_KEY;
+  if (!apiKey) return fallbackOutreachDraft(lead, style);
+  const model = env.GEMINI_OUTREACH_MODEL || env.GEMINI_MODEL || "gemini-1.5-flash";
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const prompt = [
+    "You are a careful B2B outreach copywriter. Return strict JSON with exactly these keys: email_subject, email_draft, whatsapp_draft, personalization_note.",
+    `Sender profile: ${JSON.stringify(OUTREACH_PROFILE)}`,
+    `Additional campaign style from the user: ${style || "Use the sender profile style."}`,
+    "Rules: write drafts only; never send messages. Use sender email info@sayadbayezid.com and support CTA support@sayadbayezid.com. Use only facts present in the lead object. Do not claim the business is new, weak, interested, or a customer unless the lead data states it. Do not invent names, services, results, or relationships. Keep email under 140 words and WhatsApp under 70 words. Make the message human, specific, respectful, and easy to decline. Mention website https://sayadbayezid.com naturally.",
+    `Lead: ${JSON.stringify({ name: lead.name, category: lead.category, address: lead.address, website: lead.website, rating: lead.rating, facebook: lead.facebook, instagram: lead.instagram, twitter: lead.twitter, linkedin: lead.linkedin })}`,
+  ].join("\n");
+  try {
+    const response = await fetchWithTimeout(endpoint, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json", temperature: 0.4 } }),
+    }, 12000);
+    if (!response.ok) return fallbackOutreachDraft(lead, style);
+    const data = await response.json();
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+    const parsed = JSON.parse(raw.replace(/^```json\s*/i, "").replace(/\s*```$/i, "").trim());
+    if (!parsed.email_subject || !parsed.email_draft || !parsed.whatsapp_draft) return fallbackOutreachDraft(lead, style);
+    return {
+      email_subject: String(parsed.email_subject).slice(0, 180),
+      email_draft: String(parsed.email_draft).slice(0, 3000),
+      whatsapp_draft: String(parsed.whatsapp_draft).slice(0, 1200),
+      personalization_note: String(parsed.personalization_note || "Review the public facts before sending.").slice(0, 500),
+    };
+  } catch {
+    return fallbackOutreachDraft(lead, style);
+  }
 }
 
 async function googlePlacesSearch(keyword, location, maxResults, env) {
@@ -412,9 +474,14 @@ async function handleScrape(request, env) {
     for (const lead of candidates.slice(0, 10)) Object.assign(lead, await geminiEnrichment(lead, env));
   }
 
-  const leads = verifiedOnly
+  let leads = verifiedOnly
     ? candidates.filter((lead) => Boolean(lead.phone && lead.email)).slice(0, requestedMax)
     : candidates.slice(0, requestedMax);
+  const generateOutreach = body.generate_outreach !== false;
+  const outreachStyle = typeof body.outreach_style === "string" ? body.outreach_style.trim().slice(0, 1000) : "";
+  if (generateOutreach) {
+    leads = await Promise.all(leads.map(async (lead) => ({ ...lead, ...(await outreachDraftForLead(lead, env, outreachStyle)) })));
+  }
   let sheets = { exported: false, reason: "Export not requested" };
   if (body.export_to_sheet !== false && leads.length > 0) {
     sheets = await appendToGoogleSheet(leads, body, env).catch((error) => ({ exported: false, reason: error.message }));
@@ -428,7 +495,8 @@ async function handleScrape(request, env) {
     leads,
     sheets,
     filters: { verified_only: verifiedOnly, required_fields: verifiedOnly ? ["phone", "email"] : [] },
-    providers: { google_places: true, firecrawl: Boolean(env.FIRECRAWL_API_KEY), gemini: Boolean(env.GEMINI_API_KEY), geekflare_configured: Boolean(env.GEEKFLARE_API_KEY) },
+    outreach: { enabled: generateOutreach, provider: env.GEMINI_OUTREACH_API_KEY ? "dedicated Gemini outreach key" : (env.GEMINI_API_KEY ? "shared Gemini key" : "safe fallback templates") },
+    providers: { google_places: true, firecrawl: Boolean(env.FIRECRAWL_API_KEY), gemini: Boolean(env.GEMINI_API_KEY || env.GEMINI_OUTREACH_API_KEY), geekflare_configured: Boolean(env.GEEKFLARE_API_KEY) },
   });
 }
 
