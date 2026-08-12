@@ -43,6 +43,61 @@
             </p>
         </div>
 
+        <!-- Live Dashboard -->
+        <section class="mb-10">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <p class="text-xs uppercase tracking-[0.25em] text-cyan-400 font-semibold">Operations Center</p>
+                    <h2 class="text-2xl font-bold text-white mt-1">Live Preview Dashboard</h2>
+                </div>
+                <span class="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-300">
+                    <span class="h-2 w-2 rounded-full" :class="loading ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'"></span>
+                    <span x-text="loading ? 'Processing live' : 'System ready'"></span>
+                </span>
+            </div>
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                <div class="rounded-2xl border border-slate-800 bg-slate-900/75 p-4 shadow-xl">
+                    <p class="text-xs uppercase tracking-wider text-slate-500">Leads found</p>
+                    <p class="text-3xl font-extrabold text-white mt-2" x-text="metrics.found"></p>
+                    <p class="text-xs text-slate-500 mt-1">Current run</p>
+                </div>
+                <div class="rounded-2xl border border-slate-800 bg-slate-900/75 p-4 shadow-xl">
+                    <p class="text-xs uppercase tracking-wider text-slate-500">Verified</p>
+                    <p class="text-3xl font-extrabold text-emerald-400 mt-2" x-text="metrics.verified"></p>
+                    <p class="text-xs text-slate-500 mt-1">Public business data</p>
+                </div>
+                <div class="rounded-2xl border border-slate-800 bg-slate-900/75 p-4 shadow-xl">
+                    <p class="text-xs uppercase tracking-wider text-slate-500">Emails found</p>
+                    <p class="text-3xl font-extrabold text-cyan-400 mt-2" x-text="metrics.emails"></p>
+                    <p class="text-xs text-slate-500 mt-1">Publicly listed</p>
+                </div>
+                <div class="rounded-2xl border border-slate-800 bg-slate-900/75 p-4 shadow-xl">
+                    <p class="text-xs uppercase tracking-wider text-slate-500">Sheet sync</p>
+                    <p class="text-lg font-bold mt-3" :class="metrics.sheet === 'Synced' ? 'text-emerald-400' : 'text-slate-300'" x-text="metrics.sheet"></p>
+                    <p class="text-xs text-slate-500 mt-1">Google Sheets</p>
+                </div>
+            </div>
+            <div class="rounded-2xl border border-slate-800 bg-slate-900/75 p-5 shadow-xl">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-sm font-semibold text-slate-200">Live pipeline</span>
+                    <span class="text-xs text-slate-400" x-text="progress + '%' "></span>
+                </div>
+                <div class="h-2 rounded-full bg-slate-800 overflow-hidden">
+                    <div class="h-full rounded-full bg-gradient-to-r from-indigo-500 via-cyan-400 to-emerald-400 transition-all duration-500" :style="`width: ${progress}%`"></div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 text-xs">
+                    <div class="flex items-center gap-2" :class="stage >= 1 ? 'text-emerald-300' : 'text-slate-600'"><i class="fa-solid fa-location-dot"></i> Discover businesses</div>
+                    <div class="flex items-center gap-2" :class="stage >= 2 ? 'text-emerald-300' : 'text-slate-600'"><i class="fa-solid fa-shield-check"></i> Verify public details</div>
+                    <div class="flex items-center gap-2" :class="stage >= 3 ? 'text-emerald-300' : 'text-slate-600'"><i class="fa-solid fa-table-cells"></i> Sync Google Sheet</div>
+                </div>
+                <div class="mt-4 border-t border-slate-800 pt-3 max-h-28 overflow-y-auto space-y-1">
+                    <template x-for="(event, index) in activity" :key="index">
+                        <p class="text-xs text-slate-400"><span class="text-slate-600 mr-2" x-text="event.time"></span><span x-text="event.text"></span></p>
+                    </template>
+                </div>
+            </div>
+        </section>
+
         <!-- Search Card -->
         <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl mb-10 relative overflow-hidden">
             <div class="absolute -right-20 -top-20 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -170,10 +225,18 @@
                 loading: false,
                 leads: [],
                 message: '',
-                apiBase: (document.querySelector('meta[name="nexus-api-base"]')?.content || window.NEXUS_API_BASE || 'http://localhost:8787').replace(/\\/$/, ''),
+                progress: 0,
+                stage: 0,
+                activity: [{ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: 'Dashboard ready for a new research run.' }],
+                metrics: { found: 0, verified: 0, emails: 0, sheet: 'Waiting' },
+                apiBase: (document.querySelector('meta[name="nexus-api-base"]')?.content || window.NEXUS_API_BASE || 'http://localhost:8787').replace(/\/$/, ''),
                 async searchLeads() {
                     this.loading = true;
                     this.message = '';
+                    this.progress = 10;
+                    this.stage = 1;
+                    this.metrics = { found: 0, verified: 0, emails: 0, sheet: 'Preparing' };
+                    this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: `Starting research for ${this.keyword} near ${this.location}.` });
                     try {
                         const response = await fetch(this.apiBase + '/api/scrape', {
                             method: 'POST',
@@ -188,18 +251,35 @@
                                 export_to_sheet: true
                             })
                         });
+                        this.progress = 65;
+                        this.stage = 2;
+                        this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: 'Google Places returned businesses; verifying public details.' });
                         const data = await response.json();
                         if (data.success) {
                             this.leads = data.leads;
+                            this.metrics.found = data.leads.length;
+                            this.metrics.verified = data.leads.filter(item => item.verification || item.status === 'Verified').length;
+                            this.metrics.emails = data.leads.filter(item => item.email).length;
+                            this.stage = 3;
+                            this.progress = 90;
+                            this.metrics.sheet = data.sheets?.exported ? 'Synced' : 'Not configured';
+                            this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: data.sheets?.exported ? 'All leads appended to the selected Google Sheet.' : (data.sheets?.reason || 'Leads loaded without Sheet sync.') });
                             this.message = data.sheets?.exported ? 'Leads exported to Google Sheets.' : (data.sheets?.reason || 'Leads loaded.');
                         } else {
+                            this.metrics.sheet = 'Failed';
+                            this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: data.error || 'Scraping failed.' });
                             this.message = data.error || 'Scraping failed.';
                         }
                     } catch (err) {
                         console.error(err);
+                        this.progress = 0;
+                        this.stage = 0;
+                        this.metrics.sheet = 'Error';
+                        this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: 'Connection error with the Cloudflare backend.' });
                         this.message = 'Connection error with the Cloudflare backend.';
                     } finally {
                         this.loading = false;
+                        if (this.progress === 90) this.progress = 100;
                     }
                 },
                 exportCSV() {
