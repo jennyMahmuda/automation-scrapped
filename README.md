@@ -14,38 +14,30 @@ NexusLeads is a premium lead-research application with a responsive GitHub Pages
 | `backend/main.py` | Local FastAPI-compatible development backend. Production traffic should use the Cloudflare Worker. |
 | `.github/workflows/pages.yml` | GitHub Pages deployment workflow for the `frontend/` directory. |
 
-## Cloudflare backend deployment
+## Cloudflare backend deployment & CI/CD
 
-The production backend is successfully deployed as a Cloudflare Worker named `nexusleads-api` at:
-`https://nexusleads-api.mahmudajenny6.workers.dev`
+The production backend is automatically deployed and synchronized via **GitHub Actions** (`.github/workflows/deploy-backend.yml`). Whenever you push updates to `cloudflare/`, GitHub Actions automatically deploys the Worker to Cloudflare and securely provisions your API keys as encrypted Cloudflare Worker secrets.
 
-It exposes `GET /api/health` and `POST /api/scrape`.
+Live Endpoint: `https://nexusleads-api.mahmudajenny6.workers.dev`
 
 The Worker is configured for a `workers.dev` endpoint. Cloudflare Python Workers are currently in open beta and require a special compatibility flag; this project therefore keeps the production edge handler in the stable JavaScript module Worker runtime while retaining `backend/main.py` for local Python development. This avoids claiming that the Python development server is itself the deployed edge runtime.
 
-## Required Cloudflare secrets
+## Required GitHub Secrets
 
-Set each value with the Cloudflare dashboard or `wrangler secret put`. Never place secret values in `wrangler.toml`, GitHub Actions, HTML, JavaScript shipped to browsers, or committed files.
+To enable automated deployment and secret synchronization, add the following secrets in your GitHub repository under **Settings > Secrets and variables > Actions**:
 
-| Secret | Purpose |
+| GitHub Secret Name | Purpose |
 |---|---|
-| `GOOGLE_MAP_API_NEW` | Google Places Text Search and Place Details. |
-| `GOOGLE_SERVICE_ACCOUNT_JSON` | Complete Google service-account JSON for Sheets OAuth. The service account must be granted access to the target spreadsheet. |
-| `GOOGLE_SHEET_ID` | Spreadsheet ID from the Google Sheets URL. |
-| `FIRECRAWL_API_KEY` | Optional public-website enrichment through Firecrawl v2. |
-| `GEMINI_API_KEY` | Optional AI classification and fit scoring. |
-| `GEEKFLARE_API_KEY` | Retained as an optional provider credential; no undocumented Geekflare endpoint is guessed. |
+| `CLOUDFLARE_AC_ID` | Your Cloudflare Account ID |
+| `CLOUDFLARE_API_KEY` | Your Cloudflare API Token (with Workers permissions) |
+| `GOOGLE_MAP_API_NEW` | Google Places Text Search and Place Details |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | Complete Google service-account JSON for Sheets OAuth |
+| `GOOGLE_SHEET_ID` | Spreadsheet ID from your Google Sheets URL |
+| `FIRECRAWL_API_KEY` | Public-website enrichment via Firecrawl v2 |
+| `GEMINI_API_KEY` | AI classification and lead fit scoring |
+| `GEEKFLARE_API_KEY` | Optional security/meta scanning credential |
 
-Example commands use placeholders only:
-
-```bash
-npx wrangler secret put GOOGLE_MAP_API_NEW
-npx wrangler secret put GOOGLE_SERVICE_ACCOUNT_JSON
-npx wrangler secret put GOOGLE_SHEET_ID
-npx wrangler secret put FIRECRAWL_API_KEY
-npx wrangler secret put GEMINI_API_KEY
-npx wrangler secret put GEEKFLARE_API_KEY
-```
+Once added, pushing any update to your repository will automatically deploy your Worker and sync all secrets securely without ever exposing them in your codebase.
 
 The Google service account JSON is entered as one complete JSON value when prompted. The spreadsheet must be shared with the service-account email address with Editor permission. The API server writes to the `Leads` tab by default and includes a header row with business name, category, phone, email, address, website, rating, verification, source, and collection time.
 
