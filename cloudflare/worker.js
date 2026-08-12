@@ -190,15 +190,16 @@ function base64UrlToBytes(value) {
 async function hashPassword(password) {
   const salt = randomBytes(16);
   const material = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt, iterations: 120000, hash: "SHA-256" }, material, 256);
-  return `pbkdf2$120000$${bytesToBase64Url(salt)}$${bytesToBase64Url(new Uint8Array(bits))}`;
+  const iterations = 100000;
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt, iterations, hash: "SHA-256" }, material, 256);
+  return `pbkdf2$${iterations}$${bytesToBase64Url(salt)}$${bytesToBase64Url(new Uint8Array(bits))}`;
 }
 
 async function verifyPassword(password, stored) {
   const [scheme, iterationsText, saltText, digestText] = String(stored || "").split("$");
   if (scheme !== "pbkdf2" || !iterationsText || !saltText || !digestText) return false;
   const material = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt: base64UrlToBytes(saltText), iterations: Math.min(Number(iterationsText) || 120000, 200000), hash: "SHA-256" }, material, 256);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt: base64UrlToBytes(saltText), iterations: Math.min(Number(iterationsText) || 100000, 100000), hash: "SHA-256" }, material, 256);
   return bytesToBase64Url(new Uint8Array(bits)) === digestText;
 }
 
