@@ -1,9 +1,14 @@
 # Credentials and secrets
 Googleservices.json
+backend/Googleservices.json
 .env
+.env.*
+.dev.vars*
+cloudflare/.dev.vars*
 __pycache__/
 *.pyc
 node_modules/
+.wrangler/
 dist/
 build/
 .DS_Store

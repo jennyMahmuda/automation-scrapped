@@ -1,0 +1,7 @@
+# Provider Research Findings (2026-08-12)
+
+Firecrawl's current v2 scrape endpoint is `POST https://api.firecrawl.dev/v2/scrape`. The documented request uses an `Authorization: Bearer <token>` header, `Content-Type: application/json`, and a body containing `url` plus `formats` such as `markdown`, with optional `onlyMainContent`. The response includes extracted markdown and other page formats. Source: https://docs.firecrawl.dev/api-reference/endpoint/scrape
+
+Geekflare's API reference lists the base URL `https://api.geekflare.com` and endpoints for web scraping, search, meta scraping, screenshots, DNS, site health, Lighthouse, and other testing utilities. Since the specific authentication header and the best endpoint for email enrichment were not fully visible in the reference page, the implementation will not guess at its contract. Instead, the `GEEKFLARE_API_KEY` will be retained as an optional secret and surfaced only in a non-sensitive provider status check until the user confirms the exact Geekflare product/endpoint they want enabled. Source: https://docs.geekflare.com/endpoint/reference
+
+Implementation decision: use Firecrawl's documented v2 scrape API for optional public website enrichment. Use Google Places as the source of business name, address, rating, category, phone, and website. Extract emails only from public business websites returned by Places or Firecrawl; never infer or fabricate contact details. Provider keys remain server-side secrets.

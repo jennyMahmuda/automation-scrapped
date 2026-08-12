@@ -1,43 +1,91 @@
-# NexusLeads: AI-Powered B2B Lead Scraper & Verifier
+# NexusLeads
 
-NexusLeads is an intelligent lead generation application featuring a **Python backend** (compatible with Cloudflare Workers / server deployment) and a **premium Tailwind CSS frontend** hosted on **GitHub Pages**.
+NexusLeads is a premium lead-research application with a responsive GitHub Pages frontend and an edge backend on Cloudflare Workers. It discovers public business listings from Google Places, verifies public website details, optionally enriches the listing with Firecrawl and Gemini, and appends the results to Google Sheets.
 
-## Architecture & Features
+> **Privacy and compliance boundary:** the application uses public business information supplied by approved APIs and public business websites. It does not bypass logins, CAPTCHA, paywalls, or access controls, and it does not fabricate or infer missing emails. You are responsible for complying with the terms of the data providers and applicable outreach/privacy laws.
 
-- **Frontend (`index.html`)**: Built with Tailwind CSS and Alpine.js, featuring a dark cyberpunk aesthetic, real-time lead search, status indicators, and CSV export.
-- **Backend API (`backend/main.py`)**: Built with FastAPI, integrating:
-  - **Google Maps API** (`GOOGLE_MAP_API_NEW`) for finding local businesses, addresses, phone numbers, and websites.
-  - **Gemini API** (`GEMINI_API_KEY`) for AI lead enrichment and categorization.
-  - **Firecrawl API** (`FIRECRAWL_API_KEY`) & **Geekflare API** (`GEEKFLARE_API_KEY`) for deep scraping and technical verification.
-  - **Google Sheets Integration** (`Googleservices.json`) for automatic lead synchronization.
+## Repository layout
 
----
+| Path | Purpose |
+|---|---|
+| `frontend/index.html` | Premium responsive interface for keyword/location research, result review, and CSV export. |
+| `cloudflare/worker.js` | Cloudflare Worker edge API. Secrets are read only from the Worker environment. |
+| `cloudflare/wrangler.toml` | Worker name, compatibility date, non-sensitive variables, and required secret names. |
+| `backend/main.py` | Local FastAPI-compatible development backend. Production traffic should use the Cloudflare Worker. |
+| `.github/workflows/pages.yml` | GitHub Pages deployment workflow for the `frontend/` directory. |
 
-## Security & Secrets Management
+## Cloudflare backend deployment
 
-To ensure your secret keys (`CLOUDFLARE_AC_ID`, `CLOUDFLARE_API_KEY`, `GOOGLE_MAP_API_NEW`, `GEMINI_API_KEY`, `GEEKFLARE_API_KEY`, `FIRECRAWL_API_KEY`, and `Googleservices.json`) are **never exposed**:
-1. All secrets are stored securely as environment variables or Cloudflare secrets.
-2. `Googleservices.json` is listed in `.gitignore` and will never be committed to GitHub.
+The production backend is the Worker named `nexusleads-api`. The Worker exposes `GET /api/health` and `POST /api/scrape`.
 
----
+To deploy from a machine with Wrangler and the Cloudflare account selected, run:
 
-## Setup & Deployment Instructions
+```bash
+cd cloudflare
+npx wrangler deploy
+```
 
-### 1. Frontend Deployment (GitHub Pages)
-1. Copy `frontend/index.html` to the root of your repository (or configure GitHub Pages to serve from `frontend/`).
-2. Enable **GitHub Pages** in your repository settings (`Settings > Pages > Build and deployment > Source: GitHub Actions` or main branch).
-3. The frontend will be live at `https://<your-username>.github.io/automation-scrapped/`.
+The Worker is configured for a `workers.dev` endpoint. Cloudflare Python Workers are currently in open beta and require a special compatibility flag; this project therefore keeps the production edge handler in the stable JavaScript module Worker runtime while retaining `backend/main.py` for local Python development. This avoids claiming that the Python development server is itself the deployed edge runtime.
 
-### 2. Backend Deployment (Cloudflare / Python Server)
-1. Set up your Cloudflare Worker or Python hosting environment.
-2. Add your secrets to Cloudflare Environment Variables or your server `.env`:
-   - `GOOGLE_MAP_API_NEW`
-   - `GEMINI_API_KEY`
-   - `GEEKFLARE_API_KEY`
-   - `FIRECRAWL_API_KEY`
-3. Place your Google Service Account credentials file as `backend/Googleservices.json` (ensure it is git-ignored).
-4. Run the backend server:
-   ```bash
-   pip install -r backend/requirements.txt
-   uvicorn backend.main:app --host 0.0.0.0 --port 8000
-   ```
+## Required Cloudflare secrets
+
+Set each value with the Cloudflare dashboard or `wrangler secret put`. Never place secret values in `wrangler.toml`, GitHub Actions, HTML, JavaScript shipped to browsers, or committed files.
+
+| Secret | Purpose |
+|---|---|
+| `GOOGLE_MAP_API_NEW` | Google Places Text Search and Place Details. |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | Complete Google service-account JSON for Sheets OAuth. The service account must be granted access to the target spreadsheet. |
+| `GOOGLE_SHEET_ID` | Spreadsheet ID from the Google Sheets URL. |
+| `FIRECRAWL_API_KEY` | Optional public-website enrichment through Firecrawl v2. |
+| `GEMINI_API_KEY` | Optional AI classification and fit scoring. |
+| `GEEKFLARE_API_KEY` | Retained as an optional provider credential; no undocumented Geekflare endpoint is guessed. |
+
+Example commands use placeholders only:
+
+```bash
+npx wrangler secret put GOOGLE_MAP_API_NEW
+npx wrangler secret put GOOGLE_SERVICE_ACCOUNT_JSON
+npx wrangler secret put GOOGLE_SHEET_ID
+npx wrangler secret put FIRECRAWL_API_KEY
+npx wrangler secret put GEMINI_API_KEY
+npx wrangler secret put GEEKFLARE_API_KEY
+```
+
+The Google service account JSON is entered as one complete JSON value when prompted. The spreadsheet must be shared with the service-account email address with Editor permission. The API server writes to the `Leads` tab by default and includes a header row with business name, category, phone, email, address, website, rating, verification, source, and collection time.
+
+## GitHub Pages
+
+The included GitHub Actions workflow publishes `frontend/` on every push to `main`. After enabling GitHub Pages with **GitHub Actions** as the build source, the site will be available at:
+
+```text
+https://jennymahmuda.github.io/automation-scrapped/
+```
+
+After the Worker is deployed, update the `nexus-api-base` meta tag in `frontend/index.html` to the exact Worker URL, commit, and push. The frontend only stores that public URL; no API key is placed in it.
+
+## Local development
+
+For the local Python service:
+
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r backend/requirements.txt
+uvicorn backend.main:app --host 127.0.0.1 --port 8000
+```
+
+For local Worker development, use Wrangler with local secrets in `cloudflare/.dev.vars`. This file is ignored by Git and must never be committed.
+
+## API request example
+
+```json
+{
+  "keyword": "dental clinic",
+  "location": "Austin, TX",
+  "max_results": 20,
+  "enrich_with_ai": true,
+  "export_to_sheet": true
+}
+```
+
+`sheet_id` and `sheet_tab` may be supplied per request, but the recommended production setup is to keep them as Cloudflare secrets/variables so the browser does not need to know them.

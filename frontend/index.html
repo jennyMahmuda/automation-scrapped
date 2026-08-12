@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NexusLeads - AI-Powered B2B Lead Scraper & Verifier</title>
+    <meta name="nexus-api-base" content="https://nexusleads-api.mahmudajenny6.workers.dev">
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -24,7 +25,7 @@
             </div>
             <div class="flex items-center space-x-4">
                 <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400 mr-2 animate-ping"></span> Cloudflare & Sheets Connected
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 mr-2 animate-ping"></span> Edge API Ready
                 </span>
             </div>
         </div>
@@ -88,6 +89,7 @@
                     </button>
                 </div>
             </form>
+            <div x-show="message" x-text="message" class="mt-4 rounded-xl border border-indigo-500/20 bg-indigo-500/10 px-4 py-3 text-sm text-indigo-200"></div>
         </div>
 
         <!-- Results Section -->
@@ -112,6 +114,7 @@
                                 <th class="p-4">Business Name</th>
                                 <th class="p-4">Category</th>
                                 <th class="p-4">Phone</th>
+                                <th class="p-4">Email</th>
                                 <th class="p-4">Address</th>
                                 <th class="p-4">Website</th>
                                 <th class="p-4">Rating</th>
@@ -123,7 +126,11 @@
                                 <tr class="hover:bg-slate-800/50 transition">
                                     <td class="p-4 font-semibold text-white" x-text="lead.name"></td>
                                     <td class="p-4 text-slate-300" x-text="lead.category"></td>
-                                    <td class="p-4 text-slate-300" x-text="lead.phone"></td>
+                                    <td class="p-4 text-slate-300" x-text="lead.phone || 'Not listed'"></td>
+                                    <td class="p-4">
+                                        <a :href="lead.email ? 'mailto:' + lead.email : null" class="text-cyan-400 hover:underline" x-show="lead.email" x-text="lead.email"></a>
+                                        <span x-show="!lead.email" class="text-slate-600">Not publicly listed</span>
+                                    </td>
                                     <td class="p-4 text-slate-400" x-text="lead.address"></td>
                                     <td class="p-4">
                                         <a :href="lead.website" target="_blank" class="text-indigo-400 hover:underline flex items-center space-x-1" x-show="lead.website !== 'N/A'">
@@ -162,36 +169,43 @@
                 sheetName: 'NexusLeads-Database',
                 loading: false,
                 leads: [],
+                message: '',
+                apiBase: (document.querySelector('meta[name="nexus-api-base"]')?.content || window.NEXUS_API_BASE || 'http://localhost:8787').replace(/\\/$/, ''),
                 async searchLeads() {
                     this.loading = true;
+                    this.message = '';
                     try {
-                        // Change backend URL as needed or point to Cloudflare Worker endpoint
-                        const response = await fetch('http://localhost:8000/api/scrape', {
+                        const response = await fetch(this.apiBase + '/api/scrape', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 keyword: this.keyword,
                                 location: this.location,
-                                sheet_name: this.sheetName
+                                sheet_id: '',
+                                sheet_tab: 'Leads',
+                                max_results: 20,
+                                enrich_with_ai: true,
+                                export_to_sheet: true
                             })
                         });
                         const data = await response.json();
                         if (data.success) {
                             this.leads = data.leads;
+                            this.message = data.sheets?.exported ? 'Leads exported to Google Sheets.' : (data.sheets?.reason || 'Leads loaded.');
                         } else {
-                            alert('Scraping failed: ' + (data.detail || 'Unknown error'));
+                            this.message = data.error || 'Scraping failed.';
                         }
                     } catch (err) {
                         console.error(err);
-                        alert('Connection error with backend service.');
+                        this.message = 'Connection error with the Cloudflare backend.';
                     } finally {
                         this.loading = false;
                     }
                 },
                 exportCSV() {
-                    let csv = 'Name,Category,Phone,Address,Website,Rating,Status\\n';
+                    let csv = 'Name,Category,Phone,Email,Address,Website,Rating,Verification\\n';
                     this.leads.forEach(l => {
-                        csv += `"${l.name}","${l.category}","${l.phone}","${l.address}","${l.website}",${l.rating},"${l.status}"\\n`;
+                        csv += `"${l.name}","${l.category}","${l.phone || ''}","${l.email || ''}","${l.address}","${l.website || ''}",${l.rating ?? ''},"${l.verification || ''}"\\n`;
                     });
                     const blob = new Blob([csv], { type: 'text/csv' });
                     const url = window.URL.createObjectURL(blob);
