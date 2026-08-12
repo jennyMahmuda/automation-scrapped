@@ -255,9 +255,14 @@ async function createSession(userId, env) {
 }
 
 async function userCredentials(userId, env) {
-  const row = await env.NEXUS_DB.prepare("SELECT maps_key_ciphertext, maps_key_last4 FROM api_credentials WHERE user_id = ?").bind(userId).first();
-  if (!row) return { mapsApiKey: null, mapsLast4: null };
-  return { mapsApiKey: await decryptSecret(row.maps_key_ciphertext, env), mapsLast4: row.maps_key_last4 || null };
+  const row = await env.NEXUS_DB.prepare("SELECT maps_key_ciphertext, maps_key_last4, sheets_json_ciphertext, sheets_account_email FROM api_credentials WHERE user_id = ?").bind(userId).first();
+  if (!row) return { mapsApiKey: null, mapsLast4: null, sheetsJson: null, sheetsAccountEmail: null };
+  return {
+    mapsApiKey: await decryptSecret(row.maps_key_ciphertext, env),
+    mapsLast4: row.maps_key_last4 || null,
+    sheetsJson: await decryptSecret(row.sheets_json_ciphertext, env),
+    sheetsAccountEmail: row.sheets_account_email || null,
+  };
 }
 
 async function effectiveUserEnv(user, env) {
@@ -268,6 +273,10 @@ async function effectiveUserEnv(user, env) {
     effective.GOOGLE_MAP_API_NEW = credentials.mapsApiKey;
     effective.GOOGLE_MAP_API_NEW_2 = "";
     effective.GOOGLE_MAP_API_NEW_3 = "";
+  }
+  if (credentials.sheetsJson) {
+    effective.GOOGLE_SERVICE_ACCOUNT_JSON = credentials.sheetsJson;
+    effective.GOOGLESERVICES_JSON = "";
   }
   return effective;
 }
@@ -288,8 +297,9 @@ async function handleSheetAccessCheck(request, env) {
   if (!user) return json({ success: false, code: "AUTH_REQUIRED", error: "Please log in to verify spreadsheet access" }, 401);
   const body = await request.json().catch(() => null);
   const sheetId = extractSheetId(body?.sheet_id);
-  const serviceAccount = env.GOOGLE_SERVICE_ACCOUNT_JSON || env.GOOGLESERVICES_JSON;
-  const serviceAccountEmail = getPlatformServiceAccountEmail(env);
+  const credentials = await userCredentials(user.id, env);
+  const serviceAccount = credentials.sheetsJson || env.GOOGLE_SERVICE_ACCOUNT_JSON || env.GOOGLESERVICES_JSON;
+  const serviceAccountEmail = credentials.sheetsAccountEmail || getPlatformServiceAccountEmail(env);
   if (!sheetId) return json({ success: false, error: "Provide a valid Google Sheet URL or ID" }, 400);
   if (!serviceAccount) return json({ success: true, verified: true, service_account_email: serviceAccountEmail, note: "Platform service account is ready." });
   try {
@@ -359,7 +369,7 @@ async function handleCredentialStatus(request, env) {
   const user = await sessionUser(request, env);
   if (!user) return json({ success: false, error: "Authentication required" }, 401);
   const credentials = await userCredentials(user.id, env);
-  return json({ success: true, service_account_email: getPlatformServiceAccountEmail(env), credentials: { maps_configured: Boolean(credentials.mapsApiKey), maps_last4: credentials.mapsLast4 } });
+  return json({ success: true, service_account_email: credentials.sheetsAccountEmail || getPlatformServiceAccountEmail(env), credentials: { maps_configured: Boolean(credentials.mapsApiKey), maps_last4: credentials.mapsLast4, sheets_configured: Boolean(credentials.sheetsJson), sheets_account_email: credentials.sheetsAccountEmail || null } });
 }
 
 async function handleCredentialSave(request, env) {
@@ -367,17 +377,37 @@ async function handleCredentialSave(request, env) {
   if (!user) return json({ success: false, error: "Authentication required" }, 401);
   if (!env.NEXUS_DB || !env.NEXUS_CREDENTIALS_KEY) return json({ success: false, error: "Secure credential storage is not configured" }, 503);
   const body = await request.json().catch(() => null);
-  const existing = await env.NEXUS_DB.prepare("SELECT maps_key_ciphertext, maps_key_last4, created_at FROM api_credentials WHERE user_id = ?").bind(user.id).first();
+  const existing = await env.NEXUS_DB.prepare("SELECT maps_key_ciphertext, maps_key_last4, sheets_json_ciphertext, sheets_account_email, created_at FROM api_credentials WHERE user_id = ?").bind(user.id).first();
   let mapsCipher = existing?.maps_key_ciphertext || null;
   let mapsLast4 = existing?.maps_key_last4 || null;
+  let sheetsCipher = existing?.sheets_json_ciphertext || null;
+  let sheetsEmail = existing?.sheets_account_email || null;
   if (body && Object.prototype.hasOwnProperty.call(body, "maps_api_key")) {
     const mapsKey = String(body.maps_api_key || "").trim();
     mapsCipher = mapsKey ? await encryptSecret(mapsKey, env) : null;
     mapsLast4 = mapsKey ? mapsKey.slice(-4) : null;
   }
+  const serviceJsonField = body && Object.prototype.hasOwnProperty.call(body, "sheets_service_account_json")
+    ? body.sheets_service_account_json
+    : body?.service_account_json;
+  if (serviceJsonField !== undefined) {
+    const serviceJson = String(serviceJsonField || "").trim();
+    if (serviceJson.length > 24000) return json({ success: false, error: "Service account JSON is too large. Please provide the original compact JSON file content." }, 400);
+    if (serviceJson) {
+      let parsed;
+      try { parsed = JSON.parse(serviceJson); } catch { return json({ success: false, error: "Service account JSON is not valid JSON." }, 400); }
+      const accountEmail = normalizeEmail(parsed?.client_email);
+      if (!accountEmail || !parsed?.private_key) return json({ success: false, error: "Service account JSON must include client_email and private_key." }, 400);
+      sheetsCipher = await encryptSecret(serviceJson, env);
+      sheetsEmail = accountEmail;
+    } else {
+      sheetsCipher = null;
+      sheetsEmail = null;
+    }
+  }
   const now = new Date().toISOString();
-  await env.NEXUS_DB.prepare("INSERT INTO api_credentials (user_id, maps_key_ciphertext, maps_key_last4, sheets_json_ciphertext, sheets_account_email, created_at, updated_at) VALUES (?, ?, ?, NULL, NULL, ?, ?) ON CONFLICT(user_id) DO UPDATE SET maps_key_ciphertext = excluded.maps_key_ciphertext, maps_key_last4 = excluded.maps_key_last4, updated_at = excluded.updated_at").bind(user.id, mapsCipher, mapsLast4, existing?.created_at || now, now).run();
-  return json({ success: true, service_account_email: getPlatformServiceAccountEmail(env), credentials: { maps_configured: Boolean(mapsCipher), maps_last4: mapsLast4 } });
+  await env.NEXUS_DB.prepare("INSERT INTO api_credentials (user_id, maps_key_ciphertext, maps_key_last4, sheets_json_ciphertext, sheets_account_email, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET maps_key_ciphertext = excluded.maps_key_ciphertext, maps_key_last4 = excluded.maps_key_last4, sheets_json_ciphertext = excluded.sheets_json_ciphertext, sheets_account_email = excluded.sheets_account_email, updated_at = excluded.updated_at").bind(user.id, mapsCipher, mapsLast4, sheetsCipher, sheetsEmail, existing?.created_at || now, now).run();
+  return json({ success: true, service_account_email: sheetsEmail || getPlatformServiceAccountEmail(env), credentials: { maps_configured: Boolean(mapsCipher), maps_last4: mapsLast4, sheets_configured: Boolean(sheetsCipher), sheets_account_email: sheetsEmail } });
 }
 
 function json(data, status = 200, extraHeaders = {}) {
