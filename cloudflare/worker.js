@@ -194,6 +194,26 @@ async function websiteEnrichment(website, env) {
   };
 }
 
+async function parseLocationWithGemini(locationPrompt, env) {
+  if (!env.GEMINI_API_KEY) return locationPrompt;
+  const model = env.GEMINI_MODEL || "gemini-2.5-flash";
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`;
+  const prompt = `Convert this location prompt into a precise city, state, or region search query for Google Places (e.g. "near downtown Austin" -> "Downtown Austin, TX", "silicon valley tech hub" -> "San Jose, CA"). Return only the resolved location string.\nPrompt: ${locationPrompt}`;
+  try {
+    const response = await fetchWithTimeout(endpoint, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+    }, 8000);
+    if (!response.ok) return locationPrompt;
+    const data = await response.json();
+    const resolved = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    return resolved || locationPrompt;
+  } catch {
+    return locationPrompt;
+  }
+}
+
 async function geminiEnrichment(lead, env) {
   if (!env.GEMINI_API_KEY) return {};
   const model = env.GEMINI_MODEL || "gemini-2.5-flash";
@@ -266,8 +286,10 @@ async function handleScrape(request, env) {
   if (!body || typeof body.keyword !== "string" || typeof body.location !== "string") return json({ success: false, error: "keyword and location are required" }, 400);
 
   const keyword = body.keyword.trim().slice(0, 100);
-  const location = body.location.trim().slice(0, 150);
+  let location = body.location.trim().slice(0, 150);
   if (!keyword || !location) return json({ success: false, error: "keyword and location cannot be empty" }, 400);
+
+  location = await parseLocationWithGemini(location, env);
 
   const maxResults = Math.min(Math.max(Number(body.max_results || 20), 1), 50);
   const leads = await googlePlacesSearch(keyword, location, maxResults, env);
