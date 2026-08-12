@@ -13,7 +13,7 @@
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
     </style>
 </head>
-<body class="h-full text-slate-100 flex flex-col justify-between" x-data="leadApp()" x-init="loadSheetConfig()">
+<body class="h-full text-slate-100 flex flex-col justify-between" x-data="leadApp()" x-init="initApp()">
     <!-- Header -->
     <header class="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -23,8 +23,15 @@
                 </div>
                 <span class="text-xl font-bold bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">NexusLeads</span>
             </div>
-            <div class="flex items-center space-x-4">
-                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <div class="flex items-center space-x-3">
+                <button @click="showPricingModal = true" class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition">
+                    <i class="fa-solid fa-bolt mr-1.5 text-amber-300"></i>
+                    <span x-text="credits.used + ' / ' + credits.limit + ' Daily Leads'"></span>
+                </button>
+                <button @click="showByokModal = true" class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition">
+                    <i class="fa-solid fa-key mr-1.5"></i> BYOK Config
+                </button>
+                <span class="hidden sm:inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                     <span class="w-2 h-2 rounded-full bg-emerald-400 mr-2 animate-ping"></span> Edge API Ready
                 </span>
             </div>
@@ -314,6 +321,75 @@
         <p>&copy; 2026 NexusLeads. Securely powered by Cloudflare Backend & GitHub Pages Frontend.</p>
     </footer>
 
+    <!-- Pro Upgrade Modal -->
+    <div x-show="showPricingModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4" style="display: none;">
+        <div @click.away="showPricingModal = false" class="bg-slate-900 border border-amber-500/30 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative overflow-hidden">
+            <div class="absolute -right-16 -top-16 w-48 h-48 bg-amber-500/10 rounded-full blur-2xl pointer-events-none"></div>
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center space-x-2 text-amber-400 font-bold text-lg">
+                    <i class="fa-solid fa-crown"></i>
+                    <span>NexusLeads Pro & Daily Limit</span>
+                </div>
+                <button @click="showPricingModal = false" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="space-y-4 text-sm text-slate-300">
+                <div class="rounded-xl bg-slate-950 p-4 border border-slate-800">
+                    <p class="font-semibold text-white mb-1">Your Daily Quota Status</p>
+                    <p class="text-xs text-slate-400">Free Tier allows <strong class="text-cyan-400">100 leads per day</strong>. Used: <strong class="text-amber-400" x-text="credits.used"></strong> / <strong class="text-white" x-text="credits.limit"></strong>.</p>
+                </div>
+                <div class="rounded-xl bg-gradient-to-br from-indigo-950/40 to-slate-950 p-4 border border-indigo-500/30">
+                    <p class="font-bold text-indigo-300 mb-1">Pro Tier ($169 / month)</p>
+                    <p class="text-xs text-slate-300 mb-2">Calculated API cost ($112.65/mo for Google Maps Pro + Firecrawl Standard + Gemini Flash-Lite at full daily volume) plus our 50% professional margin.</p>
+                    <ul class="text-xs space-y-1 text-slate-400">
+                        <li><i class="fa-solid fa-check text-emerald-400 mr-1.5"></i> Unlimited daily searches & verified leads</li>
+                        <li><i class="fa-solid fa-check text-emerald-400 mr-1.5"></i> Multi-tab automated Google Sheets sync</li>
+                        <li><i class="fa-solid fa-check text-emerald-400 mr-1.5"></i> All 11 outreach skill templates & WhatsApp drafts</li>
+                    </ul>
+                </div>
+                <div class="rounded-xl bg-slate-950 p-4 border border-slate-800 text-xs text-slate-400">
+                    <p class="font-semibold text-slate-200 mb-1">Alternative: BYOK Mode ($5/mo tool fee)</p>
+                    <p>Connect your own Google Maps, Firecrawl, and Gemini API keys in the <strong>BYOK Config</strong> drawer. You pay zero markup on API costs — you only pay your direct provider bills plus the $5/mo NexusLeads tool subscription.</p>
+                </div>
+            </div>
+            <div class="mt-6 flex items-center justify-end space-x-3">
+                <button @click="showPricingModal = false" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg transition">Close</button>
+                <button @click="alert('Redirecting to secure upgrade checkout...'); showPricingModal = false;" class="px-5 py-2 bg-gradient-to-r from-amber-500 to-indigo-600 text-white text-xs font-bold rounded-lg shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40 transition">Upgrade to Pro ($169/mo)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- BYOK Config Modal -->
+    <div x-show="showByokModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4" style="display: none;">
+        <div @click.away="showByokModal = false" class="bg-slate-900 border border-indigo-500/30 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative overflow-hidden">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center space-x-2 text-indigo-400 font-bold text-lg">
+                    <i class="fa-solid fa-key"></i>
+                    <span>Secure BYOK Configuration</span>
+                </div>
+                <button @click="showByokModal = false" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="space-y-4 text-sm text-slate-300">
+                <p class="text-xs text-slate-400">Bring your own API keys to bypass managed billing. Your keys are auto-masked in local storage and sent securely to your Cloudflare backend only.</p>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Google Maps API Key (New)</label>
+                    <input type="password" x-model="byok.maps" placeholder="AIzaSy..." class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Firecrawl API Key</label>
+                    <input type="password" x-model="byok.firecrawl" placeholder="fc-..." class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Gemini API Key</label>
+                    <input type="password" x-model="byok.gemini" placeholder="AIzaSy..." class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-indigo-500">
+                </div>
+            </div>
+            <div class="mt-6 flex items-center justify-end space-x-3">
+                <button @click="showByokModal = false" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg transition">Cancel</button>
+                <button @click="saveByokConfig" class="px-5 py-2 bg-gradient-to-r from-indigo-600 to-cyan-500 text-white text-xs font-bold rounded-lg shadow-lg shadow-indigo-500/25 transition">Save & Securely Mask</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         function leadApp() {
             return {
@@ -329,6 +405,11 @@
                 verifiedOnly: true,
                 loading: false,
                 manualPushLoading: false,
+                showPricingModal: false,
+                showByokModal: false,
+                credits: { used: 0, limit: 100, remaining: 100 },
+                byok: { maps: '', firecrawl: '', gemini: '' },
+                clientId: '',
                 leads: [],
                 message: '',
                 progress: 0,
@@ -339,11 +420,18 @@
                 async postJson(path, payload) {
                     const response = await fetch(this.apiBase + path, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'application/json', 'X-Nexus-Client-ID': this.clientId },
                         body: JSON.stringify(payload)
                     });
                     const data = await response.json().catch(() => ({}));
-                    if (!response.ok || !data.success) throw new Error(data.error || 'The backend request failed.');
+                    if (!response.ok) {
+                        if (data.code === 'DAILY_CREDIT_LIMIT' || response.status === 402) {
+                            this.showPricingModal = true;
+                            throw new Error(data.error || 'Daily free limit reached.');
+                        }
+                        throw new Error(data.error || 'The backend request failed.');
+                    }
+                    if (!data.success) throw new Error(data.error || 'The backend request failed.');
                     return data;
                 },
                 async searchLeads() {
@@ -424,6 +512,26 @@
                         if (this.progress >= 90) this.progress = 100;
                     }
                 },
+                async initApp() {
+                    this.loadSheetConfig();
+                    let cid = localStorage.getItem('nexusleads-client-id');
+                    if (!cid) {
+                        cid = 'client-' + Math.random().toString(36).substring(2) + Date.now().toString(36);
+                        localStorage.setItem('nexusleads-client-id', cid);
+                    }
+                    this.clientId = cid;
+                    try {
+                        const res = await fetch(this.apiBase + '/api/usage', {
+                            headers: { 'X-Nexus-Client-ID': this.clientId }
+                        });
+                        const data = await res.json();
+                        if (data.success && data.credits) {
+                            this.credits = data.credits;
+                        }
+                    } catch (e) {
+                        console.warn('Could not load daily credits', e);
+                    }
+                },
                 loadSheetConfig() {
                     try {
                         const saved = JSON.parse(localStorage.getItem('nexusleads-sheet-config') || '{}');
@@ -431,6 +539,8 @@
                         if ([20, 25, 30, 40, 50].includes(Number(saved.maxResults))) this.maxResults = Number(saved.maxResults);
                         if (typeof saved.autoPush === 'boolean') this.autoPushEnabled = saved.autoPush;
                         else if (typeof saved.enabled === 'boolean') this.autoPushEnabled = saved.enabled;
+                        const byokSaved = JSON.parse(localStorage.getItem('nexusleads-byok') || '{}');
+                        if (byokSaved.masked) this.byok = byokSaved.masked;
                     } catch (error) {
                         console.warn('Saved Google Sheets configuration could not be loaded.');
                     }
@@ -440,6 +550,20 @@
                         localStorage.setItem('nexusleads-sheet-config', JSON.stringify({ sheetId: this.sheetId, autoPush: this.autoPushEnabled, maxResults: Number(this.maxResults) }));
                     } catch (error) {
                         console.warn('Google Sheets configuration could not be saved locally.');
+                    }
+                },
+                saveByokConfig() {
+                    try {
+                        const masked = {
+                            maps: this.byok.maps ? '••••••' + this.byok.maps.slice(-4) : '',
+                            firecrawl: this.byok.firecrawl ? '••••••' + this.byok.firecrawl.slice(-4) : '',
+                            gemini: this.byok.gemini ? '••••••' + this.byok.gemini.slice(-4) : ''
+                        };
+                        localStorage.setItem('nexusleads-byok', JSON.stringify({ raw: this.byok, masked }));
+                        this.showByokModal = false;
+                        this.message = 'BYOK keys securely saved and auto-masked.';
+                    } catch (e) {
+                        alert('Could not save BYOK config.');
                     }
                 },
                 allSelected() {

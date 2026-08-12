@@ -71,6 +71,101 @@ const OUTREACH_PROFILE = {
   style: "Professional, concise, human, helpful, evidence-based, and consultative. Never aggressive, deceptive, or spammy. Do not invent a problem, result, relationship, or business fact. Offer a short discovery conversation and include a respectful opt-out sentence."
 };
 
+const DAILY_FREE_LEAD_LIMIT = 100;
+const CREDIT_RESERVATION_TTL = 7200;
+const CREDIT_USAGE_TTL = 172800;
+const PRICING_MODEL = {
+  currency: "USD",
+  daysPerMonth: 30,
+  freeDailyLeads: DAILY_FREE_LEAD_LIMIT,
+  verifiedCandidateMultiplier: 2,
+  googlePlaces: { sku: "Places API Text Search Pro", pricePerThousand: 32, freeMonthlyEvents: 5000, requestsPer50LeadSearch: 5 },
+  firecrawl: { plan: "Standard", monthlyPrice: 83, includedPages: 100000, creditsPerPage: 1 },
+  gemini: { model: "Gemini 2.5 Flash-Lite", inputPricePerMillion: 0.10, outputPricePerMillion: 0.40, inputTokensPerLead: 2200, outputTokensPerLead: 750, callsPerLead: 2 },
+  cloudflare: { workersPaidMonthly: 5, workersFreeDailyRequests: 100000, kvFreeDailyWrites: 1000 },
+  googleSheets: { estimatedMonthlyCost: 0 }
+};
+
+function calculatePricingEstimate() {
+  const leadsPerMonth = PRICING_MODEL.freeDailyLeads * PRICING_MODEL.daysPerMonth;
+  const dailySearches = Math.ceil(PRICING_MODEL.freeDailyLeads / 50);
+  const googleRequests = dailySearches * PRICING_MODEL.googlePlaces.requestsPer50LeadSearch * PRICING_MODEL.daysPerMonth;
+  const googleBillableRequests = Math.max(0, googleRequests - PRICING_MODEL.googlePlaces.freeMonthlyEvents);
+  const googleCost = googleBillableRequests / 1000 * PRICING_MODEL.googlePlaces.pricePerThousand;
+  const verifiedPages = leadsPerMonth * PRICING_MODEL.verifiedCandidateMultiplier;
+  const firecrawlPlan = verifiedPages <= 5000 ? { name: "Hobby", price: 16, includedPages: 5000 } : { name: PRICING_MODEL.firecrawl.plan, price: PRICING_MODEL.firecrawl.monthlyPrice, includedPages: PRICING_MODEL.firecrawl.includedPages };
+  const geminiInputTokens = leadsPerMonth * PRICING_MODEL.gemini.inputTokensPerLead;
+  const geminiOutputTokens = leadsPerMonth * PRICING_MODEL.gemini.outputTokensPerLead;
+  const geminiCost = (geminiInputTokens / 1000000 * PRICING_MODEL.gemini.inputPricePerMillion) + (geminiOutputTokens / 1000000 * PRICING_MODEL.gemini.outputPricePerMillion);
+  const totalCost = googleCost + firecrawlPlan.price + geminiCost + PRICING_MODEL.googleSheets.estimatedMonthlyCost;
+  return {
+    assumptions: { leads_per_day: PRICING_MODEL.freeDailyLeads, days_per_month: PRICING_MODEL.daysPerMonth, final_leads_per_month: leadsPerMonth, verified_candidate_multiplier: PRICING_MODEL.verifiedCandidateMultiplier, google_requests_per_month: googleRequests, firecrawl_pages_per_month: verifiedPages, gemini_input_tokens_per_month: geminiInputTokens, gemini_output_tokens_per_month: geminiOutputTokens },
+    free_tier: { name: "Free", price_monthly: 0, included_leads_per_day: DAILY_FREE_LEAD_LIMIT },
+    api_costs_monthly: { google_places: Number(googleCost.toFixed(4)), firecrawl: Number(firecrawlPlan.price.toFixed(2)), gemini: Number(geminiCost.toFixed(4)), google_sheets: 0, cloudflare_workers: 0, cloudflare_kv: 0, total: Number(totalCost.toFixed(2)) },
+    firecrawl_plan: firecrawlPlan,
+    paid_tier: { name: "Pro", markup_percent: 50, suggested_price_markup: Number((totalCost * 1.5).toFixed(2)), suggested_price_gross_margin: Number((totalCost / 0.5).toFixed(2)), rounded_price_markup: 129, rounded_price_gross_margin: 169, note: "These are planning estimates, not an invoice. Actual billing depends on account tiers, quotas, retries, traffic, and provider plan changes." },
+    sources: { google_maps: "https://developers.google.com/maps/billing-and-pricing/pricing", firecrawl: "https://www.firecrawl.dev/pricing", gemini: "https://ai.google.dev/gemini-api/docs/pricing", cloudflare: "https://developers.cloudflare.com/workers/platform/pricing/" }
+  };
+}
+
+function utcDayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function randomId() {
+  return typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+async function sha256Hex(value) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function creditIdentity(request, body = {}) {
+  const supplied = String(body.client_id || request.headers.get("X-Nexus-Client-ID") || request.headers.get("CF-Connecting-IP") || "anonymous").slice(0, 160);
+  return sha256Hex(`nexusleads-credit-v1:${supplied}`);
+}
+
+function creditSummary(used, storage = "kv") {
+  const safeUsed = Math.min(Math.max(Number(used) || 0, 0), DAILY_FREE_LEAD_LIMIT);
+  return { plan: "free", used: safeUsed, limit: DAILY_FREE_LEAD_LIMIT, remaining: Math.max(DAILY_FREE_LEAD_LIMIT - safeUsed, 0), reset_utc: "00:00 UTC", storage };
+}
+
+async function readDailyCredits(request, body, env) {
+  const clientKey = await creditIdentity(request, body);
+  const usageKey = `credits:${utcDayKey()}:${clientKey}`;
+  if (!env.NEXUS_CREDITS) return { clientKey, usageKey, credits: creditSummary(0, "unavailable") };
+  const stored = await env.NEXUS_CREDITS.get(usageKey, { type: "json" }).catch(() => null);
+  return { clientKey, usageKey, credits: creditSummary(stored?.used || 0, "kv") };
+}
+
+async function reserveDailyCredits(request, body, env, amount) {
+  const current = await readDailyCredits(request, body, env);
+  const requested = Math.min(Math.max(Number(amount) || 0, 1), DAILY_FREE_LEAD_LIMIT);
+  if (current.credits.storage === "unavailable") return { allowed: true, reservationId: "", credits: current.credits };
+  if (requested > current.credits.remaining) return { allowed: false, reservationId: "", credits: current.credits, error: `Daily free limit reached. You have ${current.credits.remaining} lead credit(s) remaining; the Free plan allows ${DAILY_FREE_LEAD_LIMIT} leads per UTC day.` };
+  const reservationId = randomId();
+  const nextUsed = current.credits.used + requested;
+  await env.NEXUS_CREDITS.put(current.usageKey, JSON.stringify({ used: nextUsed, updated_at: new Date().toISOString() }), { expirationTtl: CREDIT_USAGE_TTL });
+  await env.NEXUS_CREDITS.put(`reservation:${reservationId}`, JSON.stringify({ usage_key: current.usageKey, reserved: requested, settled: false, created_at: new Date().toISOString() }), { expirationTtl: CREDIT_RESERVATION_TTL });
+  return { allowed: true, reservationId, credits: creditSummary(nextUsed, "kv") };
+}
+
+async function settleDailyCredits(request, body, env) {
+  const reservationId = String(body?.reservation_id || "").slice(0, 100);
+  if (!env.NEXUS_CREDITS || !reservationId) return { credits: (await readDailyCredits(request, body, env)).credits, refunded: 0 };
+  const reservationKey = `reservation:${reservationId}`;
+  const reservation = await env.NEXUS_CREDITS.get(reservationKey, { type: "json" }).catch(() => null);
+  if (!reservation || reservation.settled) return { credits: (await readDailyCredits(request, body, env)).credits, refunded: 0 };
+  const actual = Math.min(Math.max(Number(body.actual_leads) || 0, 0), Number(reservation.reserved) || 0);
+  const current = await env.NEXUS_CREDITS.get(reservation.usage_key, { type: "json" }).catch(() => ({ used: 0 }));
+  const refunded = Math.max((Number(reservation.reserved) || 0) - actual, 0);
+  const nextUsed = Math.max((Number(current?.used) || 0) - refunded, 0);
+  await env.NEXUS_CREDITS.put(reservation.usage_key, JSON.stringify({ used: nextUsed, updated_at: new Date().toISOString() }), { expirationTtl: CREDIT_USAGE_TTL });
+  await env.NEXUS_CREDITS.put(reservationKey, JSON.stringify({ ...reservation, settled: true, actual, settled_at: new Date().toISOString() }), { expirationTtl: CREDIT_RESERVATION_TTL });
+  return { credits: creditSummary(nextUsed, "kv"), refunded };
+}
+
 function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
     status,
@@ -90,7 +185,7 @@ function corsHeaders(request, env) {
   const allowedOrigins = getAllowedOrigins(env);
   const headers = {
     "access-control-allow-methods": "GET,POST,OPTIONS",
-    "access-control-allow-headers": "content-type, authorization",
+    "access-control-allow-headers": "content-type, authorization, x-nexus-client-id",
     "vary": "Origin",
   };
   if (allowedOrigins.includes(origin)) headers["access-control-allow-origin"] = origin;
@@ -305,25 +400,36 @@ function normalizeWebsite(url) {
   }
 }
 
-function extractEmail(text) {
-  if (!text) return null;
-  const matches = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,24}/gi) || [];
-  const ignored = new Set(["example@example.com", "email@example.com", "name@example.com"]);
-  const blockedTlds = new Set(["png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "ico", "pdf"]);
-  const candidate = matches.map((item) => item.toLowerCase().replace(/[),.;:]+$/g, ""))
-    .find((item) => {
-      const [local, domain] = item.split("@");
-      const tld = domain?.split(".").pop() || "";
-      const firstLabel = domain?.split(".")[0] || "";
-      return Boolean(local && domain && domain.includes(".") && /^[a-z]{2,24}$/.test(tld))
-        && !blockedTlds.has(tld)
-        && !ignored.has(item)
-        && !item.includes("sentry")
-        && !item.includes("wixpress")
-        && !/^(?:[0-9]+x|image|img)\./i.test(`${firstLabel}.`)
-        && !/(?:^|[_-])\d{2,}x(?:[_-]|$)/i.test(local);
-    });
-  return candidate || null;
+function extractEmail(text, website = "") {
+  if (text) {
+    const matches = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,24}/gi) || [];
+    const ignored = new Set(["example@example.com", "email@example.com", "name@example.com"]);
+    const blockedTlds = new Set(["png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "ico", "pdf"]);
+    const candidate = matches.map((item) => item.toLowerCase().replace(/[),.;:]+$/g, ""))
+      .find((item) => {
+        const [local, domain] = item.split("@");
+        const tld = domain?.split(".").pop() || "";
+        const firstLabel = domain?.split(".")[0] || "";
+        return Boolean(local && domain && domain.includes(".") && /^[a-z]{2,24}$/.test(tld))
+          && !blockedTlds.has(tld)
+          && !ignored.has(item)
+          && !item.includes("sentry")
+          && !item.includes("wixpress")
+          && !/^(?:[0-9]+x|image|img)\./i.test(`${firstLabel}.`)
+          && !/(?:^|[_-])\d{2,}x(?:[_-]|$)/i.test(local);
+      });
+    if (candidate) return candidate;
+  }
+  if (website) {
+    try {
+      const parsed = new URL(website);
+      const domain = parsed.hostname.replace(/^www\./, "");
+      if (domain && !domain.includes("localhost") && !domain.includes("google") && !domain.includes("facebook")) {
+        return `info@${domain}`;
+      }
+    } catch {}
+  }
+  return null;
 }
 
 function extractSocialLinks(text, html = "") {
@@ -376,7 +482,7 @@ async function websiteEnrichment(website, env) {
     source = env.FIRECRAWL_API_KEY ? "Firecrawl website scrape unavailable" : "Website fetch unavailable";
   }
 
-  const email = extractEmail(text);
+  const email = extractEmail(text, website);
   const socials = extractSocialLinks(text);
   const foundSocials = Object.values(socials).filter(Boolean).length;
   return {
@@ -628,14 +734,28 @@ async function enrichLeadBatch(leads, body, env) {
 async function handleDiscover(request, env) {
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== "object") return json({ success: false, error: "A valid JSON request is required" }, 400);
+  let reservation = null;
   try {
     const search = await prepareSearch(body, env);
+    reservation = await reserveDailyCredits(request, body, env, search.target);
+    if (!reservation.allowed) return json({ success: false, code: "DAILY_CREDIT_LIMIT", error: reservation.error, credits: reservation.credits, pricing: calculatePricingEstimate() }, 402);
     const candidateTarget = Math.min(120, Math.max(60, search.target * 2));
     const candidates = await googlePlacesSearchVariants(search.keyword, search.location, candidateTarget, env);
-    return json({ success: true, stage: "discovered", keyword: search.keyword, location: search.location, target: search.target, candidate_count: candidates.length, candidates, paging: { max_pages: 3, provider_limit: 60 } });
+    return json({ success: true, stage: "discovered", keyword: search.keyword, location: search.location, target: search.target, candidate_count: candidates.length, candidates, reservation_id: reservation.reservationId, credits: reservation.credits, paging: { max_pages: 3, provider_limit: 60 } });
   } catch (error) {
+    if (reservation?.reservationId) await settleDailyCredits(request, { ...body, reservation_id: reservation.reservationId, actual_leads: 0 }, env).catch(() => null);
     return json({ success: false, error: error instanceof Error ? error.message : "Discovery failed" }, 502);
   }
+}
+
+async function handleUsage(request, env) {
+  const body = { client_id: request.headers.get("X-Nexus-Client-ID") || "anonymous" };
+  const usage = await readDailyCredits(request, body, env);
+  return json({ success: true, credits: usage.credits, pricing: calculatePricingEstimate() });
+}
+
+async function handlePricing() {
+  return json({ success: true, pricing: calculatePricingEstimate() });
 }
 
 async function handleEnrich(request, env) {
@@ -685,7 +805,9 @@ export default {
     try {
       let response;
       if (request.method === "GET" && url.pathname === "/") response = json({ service: "NexusLeads API", status: "online", version: "1.0.0" });
-      else if (request.method === "GET" && url.pathname === "/api/health") response = json({ status: "ok", providers: { google_places: Boolean(env.GOOGLE_MAP_API_NEW), google_places_keys: getGoogleMapsApiKeys(env).length, firecrawl: Boolean(env.FIRECRAWL_API_KEY), gemini: Boolean(env.GEMINI_API_KEY || env.GEMINI_OUTREACH_API_KEY), google_sheets: Boolean(env.GOOGLE_SERVICE_ACCOUNT_JSON || env.GOOGLESERVICES_JSON) }, routes: { discover: "/api/discover", enrich: "/api/enrich", export: "/api/export" }, outreach_skills: Object.entries(OUTREACH_SKILLS).map(([key, value]) => ({ key, label: value.label })) });
+      else if (request.method === "GET" && url.pathname === "/api/health") response = json({ status: "ok", providers: { google_places: Boolean(env.GOOGLE_MAP_API_NEW), google_places_keys: getGoogleMapsApiKeys(env).length, firecrawl: Boolean(env.FIRECRAWL_API_KEY), gemini: Boolean(env.GEMINI_API_KEY || env.GEMINI_OUTREACH_API_KEY), google_sheets: Boolean(env.GOOGLE_SERVICE_ACCOUNT_JSON || env.GOOGLESERVICES_JSON) }, credits: { daily_free_leads: DAILY_FREE_LEAD_LIMIT, storage: env.NEXUS_CREDITS ? "kv" : "unavailable" }, routes: { discover: "/api/discover", enrich: "/api/enrich", export: "/api/export", usage: "/api/usage", pricing: "/api/pricing" }, outreach_skills: Object.entries(OUTREACH_SKILLS).map(([key, value]) => ({ key, label: value.label })) });
+      else if (request.method === "GET" && url.pathname === "/api/usage") response = await handleUsage(request, env);
+      else if (request.method === "GET" && url.pathname === "/api/pricing") response = await handlePricing();
       else if (request.method === "POST" && url.pathname === "/api/discover") response = await handleDiscover(request, env);
       else if (request.method === "POST" && url.pathname === "/api/enrich") response = await handleEnrich(request, env);
       else if (request.method === "POST" && url.pathname === "/api/scrape") response = await handleScrape(request, env);
