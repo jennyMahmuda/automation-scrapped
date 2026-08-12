@@ -124,12 +124,30 @@ async function appendToGoogleSheet(leads, requestBody, env) {
   const url = new URL(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/${encodeURIComponent(range)}:append`);
   url.searchParams.set("valueInputOption", "USER_ENTERED");
   url.searchParams.set("insertDataOption", "INSERT_ROWS");
-  const response = await fetch(url, {
+  let response = await fetch(url, {
     method: "POST",
     headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
     body: JSON.stringify({ majorDimension: "ROWS", values: [SHEET_HEADERS, ...values] }),
   });
-  const data = await response.json();
+  let data = await response.json();
+  
+  // If tab doesn't exist, try to create it
+  if (!response.ok && data.error?.message?.includes("Unable to parse range")) {
+    const createUrl = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}:batchUpdate`;
+    await fetch(createUrl, {
+      method: "POST",
+      headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
+      body: JSON.stringify({ requests: [{ addSheet: { properties: { title: sheetTab } } }] }),
+    });
+    // Retry append
+    response = await fetch(url, {
+      method: "POST",
+      headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
+      body: JSON.stringify({ majorDimension: "ROWS", values: [SHEET_HEADERS, ...values] }),
+    });
+    data = await response.json();
+  }
+
   if (!response.ok) throw new Error(`Google Sheets export failed: ${data.error?.message || "unknown error"}`);
   return { exported: true, updated_range: data.updates?.updatedRange || null };
 }
@@ -196,7 +214,7 @@ async function websiteEnrichment(website, env) {
 
 async function parseLocationWithGemini(locationPrompt, env) {
   if (!env.GEMINI_API_KEY) return locationPrompt;
-  const model = env.GEMINI_MODEL || "gemini-2.5-flash";
+  const model = env.GEMINI_MODEL || "gemini-1.5-flash";
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`;
   const prompt = `Convert this location prompt into a precise city, state, or region search query for Google Places (e.g. "near downtown Austin" -> "Downtown Austin, TX", "silicon valley tech hub" -> "San Jose, CA"). Return only the resolved location string.\nPrompt: ${locationPrompt}`;
   try {
@@ -216,7 +234,7 @@ async function parseLocationWithGemini(locationPrompt, env) {
 
 async function geminiEnrichment(lead, env) {
   if (!env.GEMINI_API_KEY) return {};
-  const model = env.GEMINI_MODEL || "gemini-2.5-flash";
+  const model = env.GEMINI_MODEL || "gemini-1.5-flash";
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`;
   const prompt = [
     "Classify this public business listing. Return strict JSON with keys category, fit_score, and summary. Do not invent missing facts.",
@@ -237,41 +255,36 @@ async function googlePlacesSearch(keyword, location, maxResults, env) {
   const apiKey = env.GOOGLE_MAP_API_NEW;
   if (!apiKey) throw new Error("GOOGLE_MAP_API_NEW is not configured in Cloudflare Worker secrets");
 
-  const searchUrl = new URL("https://maps.googleapis.com/maps/api/place/textsearch/json");
-  searchUrl.searchParams.set("query", `${keyword} in ${location}`);
-  searchUrl.searchParams.set("key", apiKey);
-  const searchResponse = await fetchWithTimeout(searchUrl, {}, 12000);
+  const searchUrl = "https://places.googleapis.com/v1/places:searchText";
+  const searchResponse = await fetchWithTimeout(searchUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": apiKey,
+      "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.types,places.rating,places.internationalPhoneNumber,places.websiteUri",
+    },
+    body: JSON.stringify({
+      textQuery: `${keyword} in ${location}`,
+      maxResultCount: maxResults,
+    }),
+  }, 12000);
+
   const searchData = await searchResponse.json();
-  if (!searchResponse.ok || !["OK", "ZERO_RESULTS"].includes(searchData.status)) throw new Error(`Google Places search failed: ${searchData.error_message || searchData.status || "unknown error"}`);
+  if (!searchResponse.ok) throw new Error(`Google Places (New) search failed: ${searchData.error?.message || "unknown error"}`);
 
-  const places = (searchData.results || []).slice(0, maxResults);
+  const places = searchData.places || [];
   return Promise.all(places.map(async (place) => {
-    let phone = null;
-    let website = null;
-    if (place.place_id) {
-      const detailsUrl = new URL("https://maps.googleapis.com/maps/api/place/details/json");
-      detailsUrl.searchParams.set("place_id", place.place_id);
-      detailsUrl.searchParams.set("fields", "formatted_phone_number,website");
-      detailsUrl.searchParams.set("key", apiKey);
-      const detailResponse = await fetchWithTimeout(detailsUrl, {}, 10000);
-      if (detailResponse.ok) {
-        const detailData = await detailResponse.json();
-        phone = detailData.result?.formatted_phone_number || null;
-        website = normalizeWebsite(detailData.result?.website);
-      }
-    }
-
-    const types = (place.types || []).filter((type) => !["point_of_interest", "establishment"].includes(type));
+    const website = normalizeWebsite(place.websiteUri);
     const lead = {
-      name: place.name || "Unnamed business",
-      category: types[0] || keyword,
-      phone,
+      name: place.displayName?.text || "Unnamed business",
+      category: (place.types || []).filter(t => !["point_of_interest", "establishment"].includes(t))[0] || keyword,
+      phone: place.internationalPhoneNumber || null,
       email: null,
-      address: place.formatted_address || location,
+      address: place.formattedAddress || location,
       website,
       rating: place.rating ?? null,
-      verification: "Google Places verified",
-      source: "Google Places API",
+      verification: "Google Places (New) verified",
+      source: "Google Places API (New)",
       collected_at: new Date().toISOString(),
     };
     const websiteData = await websiteEnrichment(website, env).catch(() => ({ email: null, verification: "Website enrichment unavailable" }));
@@ -314,7 +327,8 @@ export default {
       else response = json({ success: false, error: "Not found" }, 404);
       return withCors(response, request, env);
     } catch (error) {
-      return withCors(json({ success: false, error: error instanceof Error ? error.message : "Unexpected backend error" }, 500), request, env);
+      console.error("Worker Error:", error);
+      return withCors(json({ success: false, error: error instanceof Error ? error.message : "Unexpected backend error", stack: error instanceof Error ? error.stack : null }, 500), request, env);
     }
   },
 };
