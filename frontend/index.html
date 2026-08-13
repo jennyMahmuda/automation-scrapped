@@ -50,6 +50,7 @@
     }
     </script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -75,41 +76,58 @@
     </style>
 </head>
 <body class="h-full text-slate-100 flex flex-col justify-between" x-data="leadApp()" x-init="initApp()">
-    <!-- Header -->
-    <header class="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                    <i class="fa-solid fa-radar text-white text-lg animate-pulse"></i>
-                </div>
-                <span class="text-xl font-bold bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">NexusLeads</span>
-            </div>
-            <nav class="hidden lg:flex items-center gap-5 text-xs text-slate-400" aria-label="Primary navigation">
-                <a href="#how-it-works" class="hover:text-cyan-300 transition">How it works</a>
-                <a href="#proof" class="hover:text-cyan-300 transition">Live proof</a>
-                <a href="#reviews" class="hover:text-cyan-300 transition">Client reviews</a>
-                <a href="#pricing" class="hover:text-cyan-300 transition">Pricing</a>
-            </nav>
-            <div class="flex items-center space-x-3">
-                <template x-if="currentUser">
-                    <div class="flex items-center space-x-2">
-                        <span class="text-xs text-slate-300 hidden md:inline" x-text="currentUser.email"></span>
-                        <button @click="logout" class="px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">Log Out</button>
+    <!-- Responsive product navigation -->
+    <header x-data="{ mobileMenu: false }" class="border-b border-slate-800/90 bg-slate-950/90 backdrop-blur-xl sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-[4.5rem] flex items-center justify-between gap-4">
+            <a href="#home" class="flex items-center gap-3 shrink-0" aria-label="NexusLeads home">
+                <span class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-indigo-500/20"><i class="fa-solid fa-radar text-white text-lg"></i></span>
+                <span class="text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-200 to-cyan-300 bg-clip-text text-transparent">NexusLeads</span>
+            </a>
+            <nav class="hidden lg:flex items-center gap-1 text-xs text-slate-300" aria-label="Primary navigation">
+                <div x-data="{ open: false }" class="relative">
+                    <button @click="open = !open" @click.outside="open = false" class="inline-flex items-center gap-2 rounded-xl px-3 py-2.5 hover:bg-white/5 hover:text-white transition"><span>Product</span><i class="fa-solid fa-chevron-down text-[9px]" :class="open ? 'rotate-180' : ''"></i></button>
+                    <div x-show="open" x-transition.origin.top.left class="absolute left-0 top-12 w-64 rounded-2xl border border-slate-700 bg-slate-900/95 p-2 shadow-2xl shadow-black/30" style="display:none">
+                        <a href="#operations" class="block rounded-xl px-3 py-3 hover:bg-cyan-400/10"><strong class="block text-white">Try NexusLeads free</strong><span class="text-[11px] text-slate-500">Run a verified local search</span></a>
+                        <a href="#how-it-works" class="block rounded-xl px-3 py-3 hover:bg-cyan-400/10"><strong class="block text-white">How it works</strong><span class="text-[11px] text-slate-500">Discover, verify, and export</span></a>
+                        <a href="#use-cases" class="block rounded-xl px-3 py-3 hover:bg-cyan-400/10"><strong class="block text-white">Use cases</strong><span class="text-[11px] text-slate-500">For agencies, freelancers, and teams</span></a>
+                        <a href="#pricing" class="block rounded-xl px-3 py-3 hover:bg-cyan-400/10"><strong class="block text-white">Pricing</strong><span class="text-[11px] text-slate-500">Free, BYOK, and managed Pro</span></a>
                     </div>
+                </div>
+                <div x-data="{ open: false }" class="relative">
+                    <button @click="open = !open" @click.outside="open = false" class="inline-flex items-center gap-2 rounded-xl px-3 py-2.5 hover:bg-white/5 hover:text-white transition"><span>Resources</span><i class="fa-solid fa-chevron-down text-[9px]" :class="open ? 'rotate-180' : ''"></i></button>
+                    <div x-show="open" x-transition.origin.top.left class="absolute left-0 top-12 w-64 rounded-2xl border border-slate-700 bg-slate-900/95 p-2 shadow-2xl shadow-black/30" style="display:none">
+                        <a href="#prompt-library" class="block rounded-xl px-3 py-3 hover:bg-violet-400/10"><strong class="block text-white">Prompt library</strong><span class="text-[11px] text-slate-500">Copy-ready research prompts</span></a>
+                        <a href="#proof" class="block rounded-xl px-3 py-3 hover:bg-violet-400/10"><strong class="block text-white">Live proof</strong><span class="text-[11px] text-slate-500">See the workflow status</span></a>
+                        <a href="#faq" class="block rounded-xl px-3 py-3 hover:bg-violet-400/10"><strong class="block text-white">FAQ</strong><span class="text-[11px] text-slate-500">Answers before you start</span></a>
+                        <a href="#newsletter" class="block rounded-xl px-3 py-3 hover:bg-violet-400/10"><strong class="block text-white">NexusLeads notes</strong><span class="text-[11px] text-slate-500">Practical growth tips by email</span></a>
+                    </div>
+                </div>
+                <a href="#reviews" class="rounded-xl px-3 py-2.5 hover:bg-white/5 hover:text-white transition">Client voice</a>
+                <a href="#faq" class="rounded-xl px-3 py-2.5 hover:bg-white/5 hover:text-white transition">FAQ</a>
+            </nav>
+            <div class="flex items-center gap-2 sm:gap-3">
+                <template x-if="currentUser">
+                    <div class="hidden sm:flex items-center gap-2"><span class="text-xs text-slate-300 max-w-36 truncate" x-text="currentUser.email"></span><button @click="logout" class="px-3 py-2 rounded-full text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">Log Out</button></div>
                 </template>
                 <template x-if="!currentUser">
-                    <div class="flex items-center space-x-2">
-                        <button @click="showAuthModal = true; authMode = 'login'" class="px-3 py-1.5 rounded-full text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition">Log In</button>
-                        <button @click="showAuthModal = true; authMode = 'signup'" class="px-3 py-1.5 rounded-full text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-white transition">Sign Up</button>
-                    </div>
+                    <div class="hidden sm:flex items-center gap-2"><button @click="showAuthModal = true; authMode = 'login'" class="px-3 py-2 rounded-full text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition">Log In</button><button @click="showAuthModal = true; authMode = 'signup'" class="px-3 py-2 rounded-full text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-white transition">Sign Up</button></div>
                 </template>
-                <button @click="showPricingModal = true" class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition">
-                    <i class="fa-solid fa-bolt mr-1.5 text-amber-300"></i>
-                    <span x-text="credits.used + ' / ' + credits.limit + ' Leads'"></span>
-                </button>
-                <button @click="showByokModal = true" class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition">
-                    <i class="fa-solid fa-key mr-1.5"></i> Maps BYOK
-                </button>
+                <button @click="showPricingModal = true" class="hidden md:inline-flex items-center px-3 py-2 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/20 hover:bg-amber-500/20 transition"><i class="fa-solid fa-bolt mr-1.5"></i><span x-text="credits.used + ' / ' + credits.limit + ' Leads'"></span></button>
+                <button @click="showByokModal = true" class="hidden md:inline-flex items-center px-3 py-2 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 hover:bg-indigo-500/20 transition"><i class="fa-solid fa-key mr-1.5"></i> BYOK</button>
+                <button @click="mobileMenu = !mobileMenu" class="lg:hidden h-10 w-10 rounded-xl border border-slate-700 bg-slate-900 text-slate-200" :aria-expanded="mobileMenu" aria-label="Toggle navigation"><i class="fa-solid" :class="mobileMenu ? 'fa-xmark' : 'fa-bars'"></i></button>
+            </div>
+        </div>
+        <div x-show="mobileMenu" x-transition class="lg:hidden border-t border-slate-800 bg-slate-950 px-4 py-4" style="display:none">
+            <div class="grid gap-1 text-sm">
+                <a @click="mobileMenu = false" href="#operations" class="rounded-xl px-3 py-3 font-semibold text-white hover:bg-white/5">Try NexusLeads free</a>
+                <a @click="mobileMenu = false" href="#how-it-works" class="rounded-xl px-3 py-3 text-slate-300 hover:bg-white/5">How it works</a>
+                <a @click="mobileMenu = false" href="#use-cases" class="rounded-xl px-3 py-3 text-slate-300 hover:bg-white/5">Use cases</a>
+                <a @click="mobileMenu = false" href="#prompt-library" class="rounded-xl px-3 py-3 text-slate-300 hover:bg-white/5">Prompt library</a>
+                <a @click="mobileMenu = false" href="#proof" class="rounded-xl px-3 py-3 text-slate-300 hover:bg-white/5">Live proof</a>
+                <a @click="mobileMenu = false" href="#reviews" class="rounded-xl px-3 py-3 text-slate-300 hover:bg-white/5">Client voice</a>
+                <a @click="mobileMenu = false" href="#faq" class="rounded-xl px-3 py-3 text-slate-300 hover:bg-white/5">FAQ</a>
+                <a @click="mobileMenu = false" href="#pricing" class="rounded-xl px-3 py-3 text-slate-300 hover:bg-white/5">Pricing</a>
+                <div class="grid grid-cols-2 gap-2 pt-2 sm:hidden"><button @click="showAuthModal = true; authMode = 'login'; mobileMenu = false" class="rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-2.5 text-xs font-semibold text-indigo-200">Log In</button><button @click="showAuthModal = true; authMode = 'signup'; mobileMenu = false" class="rounded-xl bg-cyan-500 px-3 py-2.5 text-xs font-semibold text-slate-950">Sign Up</button></div>
             </div>
         </div>
     </header>
@@ -437,6 +455,21 @@
             </div>
         </section>
 
+        <!-- Use cases and prompt library -->
+        <section id="use-cases" class="mb-12 scroll-mt-24">
+            <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 mb-6"><div><p class="text-xs uppercase tracking-[0.25em] text-cyan-300 font-semibold">Built for practical growth</p><h2 class="text-3xl sm:text-4xl font-extrabold text-white mt-2">One workflow. Four ways to win.</h2><p class="text-sm text-slate-400 leading-7 mt-3 max-w-2xl">NexusLeads is designed for people who need useful prospects, not a spreadsheet full of noise. Start with a clear market, verify the public contact signal, and move the best opportunities into a focused outreach batch.</p></div><a href="#prompt-library" class="text-sm font-semibold text-cyan-300 hover:text-cyan-200">Explore prompt examples <i class="fa-solid fa-arrow-down ml-1"></i></a></div>
+            <div class="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
+                <article class="rounded-3xl border border-cyan-400/20 bg-gradient-to-b from-cyan-950/40 to-slate-900/80 p-5 shadow-xl"><span class="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-cyan-400/10 text-cyan-300"><i class="fa-solid fa-bullseye"></i></span><h3 class="text-lg font-bold text-white mt-4">Agency owners</h3><p class="text-sm text-slate-400 leading-6 mt-2">Build a reliable prospecting lane for web, SEO, paid media, and growth retainers without outsourcing your quality bar.</p><p class="text-xs text-cyan-300 mt-4 font-semibold">Best for: repeatable client acquisition</p></article>
+                <article class="rounded-3xl border border-violet-400/20 bg-gradient-to-b from-violet-950/40 to-slate-900/80 p-5 shadow-xl"><span class="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-violet-400/10 text-violet-300"><i class="fa-solid fa-laptop-code"></i></span><h3 class="text-lg font-bold text-white mt-4">Freelancers</h3><p class="text-sm text-slate-400 leading-6 mt-2">Find local businesses with a visible opportunity, then generate a respectful project proposal or website conversation.</p><p class="text-xs text-violet-300 mt-4 font-semibold">Best for: focused service offers</p></article>
+                <article class="rounded-3xl border border-emerald-400/20 bg-gradient-to-b from-emerald-950/40 to-slate-900/80 p-5 shadow-xl"><span class="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-400/10 text-emerald-300"><i class="fa-solid fa-store"></i></span><h3 class="text-lg font-bold text-white mt-4">Local growth teams</h3><p class="text-sm text-slate-400 leading-6 mt-2">Map a service area, collect public business details, and keep outreach organized in clean Leads and Outreach tabs.</p><p class="text-xs text-emerald-300 mt-4 font-semibold">Best for: local campaigns</p></article>
+                <article class="rounded-3xl border border-amber-400/20 bg-gradient-to-b from-amber-950/40 to-slate-900/80 p-5 shadow-xl"><span class="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-400/10 text-amber-300"><i class="fa-solid fa-building"></i></span><h3 class="text-lg font-bold text-white mt-4">Real-estate teams</h3><p class="text-sm text-slate-400 leading-6 mt-2">Research brokerages, property services, and related businesses with a human, location-aware follow-up angle.</p><p class="text-xs text-amber-300 mt-4 font-semibold">Best for: territory expansion</p></article>
+            </div>
+        </section>
+
+        <section id="prompt-library" class="mb-12 scroll-mt-24">
+            <div class="rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 via-indigo-950/30 to-slate-900 p-6 sm:p-8 shadow-xl"><div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 mb-6"><div><p class="text-xs uppercase tracking-[0.25em] text-violet-300 font-semibold">Prompt library</p><h2 class="text-3xl font-extrabold text-white mt-2">Start with a sharper question.</h2><p class="text-sm text-slate-400 mt-3 max-w-2xl">Paste one of these prompts into AI Research Prompt, then adjust the market and location. NexusLeads keeps the result grounded in publicly available business information.</p></div><span class="inline-flex items-center gap-2 rounded-full border border-violet-400/20 bg-violet-400/10 px-3 py-2 text-xs font-semibold text-violet-200"><i class="fa-solid fa-wand-magic-sparkles"></i> Copy-ready prompts</span></div><div class="grid lg:grid-cols-3 gap-4"><article class="rounded-2xl border border-slate-700 bg-slate-950/70 p-5"><p class="text-xs font-bold uppercase tracking-wider text-cyan-300">Agency pipeline</p><p class="font-mono text-sm text-slate-200 leading-7 mt-3">Find independent restaurants in [CITY] with a public phone number, email, website, and signs they may need a modern website or local SEO improvement.</p></article><article class="rounded-2xl border border-slate-700 bg-slate-950/70 p-5"><p class="text-xs font-bold uppercase tracking-wider text-emerald-300">New businesses</p><p class="font-mono text-sm text-slate-200 leading-7 mt-3">Find newly established businesses in [LOCATION] that may need branding, a business page, paid advertising, or a professional website. Return only public business details.</p></article><article class="rounded-2xl border border-slate-700 bg-slate-950/70 p-5"><p class="text-xs font-bold uppercase tracking-wider text-amber-300">Partnership search</p><p class="font-mono text-sm text-slate-200 leading-7 mt-3">Find freelancers and small agencies in [CITY] offering design, development, or marketing services who may be open to a delivery partnership.</p></article></div></div>
+        </section>
+
         <!-- Live Proof -->
         <section id="proof" class="mb-12 scroll-mt-24">
             <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-5">
@@ -486,20 +519,33 @@
 
         <!-- Pricing & Payments -->
         <section id="pricing" class="mb-12 scroll-mt-24">
-            <div class="text-center max-w-2xl mx-auto mb-6"><p class="text-xs uppercase tracking-[0.25em] text-amber-300 font-semibold">Simple access</p><h2 class="text-3xl font-extrabold text-white mt-2">Start free, then choose your control level.</h2><p class="text-sm text-slate-400 mt-2">The PayPal option is live now. Other payment methods will be added later.</p></div>
-            <div class="grid md:grid-cols-2 gap-5 max-w-4xl mx-auto">
-                <div class="rounded-3xl border border-cyan-400/20 bg-slate-900/80 p-7"><p class="text-xs uppercase tracking-wider text-cyan-300 font-semibold">Free tier</p><h3 class="text-3xl font-extrabold text-white mt-2">100 leads <span class="text-sm font-medium text-slate-500">/ day</span></h3><p class="text-sm text-slate-400 leading-7 mt-3">Use the complete dashboard with daily credits, verified-only mode, Auto-Push, and clean two-tab exports.</p><button @click="showAuthModal = true; authMode = 'signup'" class="w-full mt-6 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-3 text-sm font-bold text-cyan-200 hover:bg-cyan-400/20 transition">Create free account</button></div>
-                <div class="rounded-3xl border border-amber-400/30 bg-gradient-to-br from-amber-950/30 via-indigo-950/30 to-slate-900/90 p-7"><div class="flex items-center justify-between"><p class="text-xs uppercase tracking-wider text-amber-300 font-semibold">Pro access</p><i class="fa-solid fa-crown text-amber-300"></i></div><h3 class="text-3xl font-extrabold text-white mt-2">$169 <span class="text-sm font-medium text-slate-500">/ month</span></h3><p class="text-sm text-slate-400 leading-7 mt-3">Managed API access, expanded usage, and priority workflow support. BYOK users can use the $5/month tool fee model.</p><a href="https://www.paypal.me/Connectwithbayezid" target="_blank" rel="noopener noreferrer" class="w-full mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-[#0070ba] px-4 py-3 text-sm font-bold text-white shadow-lg shadow-sky-950/40 hover:bg-[#005ea6] transition"><i class="fa-brands fa-paypal text-lg"></i> Pay with PayPal</a><p class="text-[11px] text-slate-500 text-center mt-3">Secure redirect: paypal.me/Connectwithbayezid</p><p class="text-[11px] text-slate-500 text-center mt-1">Other payment methods: coming soon</p></div>
+            <div class="text-center max-w-3xl mx-auto mb-7"><p class="text-xs uppercase tracking-[0.25em] text-amber-300 font-semibold">Simple access</p><h2 class="text-3xl sm:text-4xl font-extrabold text-white mt-2">Start free. Bring your own keys. Upgrade when you are ready.</h2><p class="text-sm text-slate-400 leading-7 mt-3">Choose the level that fits your workflow. BYOK keeps provider billing in your hands while the managed Pro plan covers the platform APIs and support.</p></div>
+            <div class="grid lg:grid-cols-3 gap-5">
+                <div class="rounded-3xl border border-cyan-400/20 bg-slate-900/80 p-7 shadow-xl"><p class="text-xs uppercase tracking-wider text-cyan-300 font-semibold">Free tier</p><h3 class="text-3xl font-extrabold text-white mt-2">$0 <span class="text-sm font-medium text-slate-500">to start</span></h3><p class="text-sm text-slate-400 leading-7 mt-3">Explore the complete dashboard with 100 lead credits per UTC day, verified-only mode, outreach drafts, and manual or automatic Sheet sync.</p><ul class="text-xs text-slate-300 space-y-2 mt-5"><li><i class="fa-solid fa-check text-emerald-400 mr-2"></i>20–50 lead targets</li><li><i class="fa-solid fa-check text-emerald-400 mr-2"></i>Public phone and email verification</li><li><i class="fa-solid fa-check text-emerald-400 mr-2"></i>Google Sheets export</li></ul><button @click="showAuthModal = true; authMode = 'signup'" class="w-full mt-6 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-3 text-sm font-bold text-cyan-200 hover:bg-cyan-400/20 transition">Create free account</button></div>
+                <div class="rounded-3xl border border-violet-400/30 bg-gradient-to-br from-violet-950/50 via-indigo-950/30 to-slate-900/90 p-7 shadow-xl relative overflow-hidden"><div class="absolute right-5 top-5 rounded-full bg-violet-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-violet-200">Best control</div><p class="text-xs uppercase tracking-wider text-violet-300 font-semibold">BYOK upgrade</p><h3 class="text-3xl font-extrabold text-white mt-2">From $3 <span class="text-sm font-medium text-slate-500">/ month</span></h3><p class="text-sm text-slate-400 leading-7 mt-3">Use your own Google Maps, Gemini, and enrichment keys. You pay provider costs directly plus a small NexusLeads platform fee.</p><div class="grid grid-cols-3 gap-2 mt-5"><div class="rounded-xl border border-violet-400/20 bg-slate-950/60 p-3 text-center"><p class="text-lg font-extrabold text-white">$3</p><p class="text-[10px] text-slate-500">1 month</p></div><div class="rounded-xl border border-violet-400/20 bg-slate-950/60 p-3 text-center"><p class="text-lg font-extrabold text-white">$5</p><p class="text-[10px] text-slate-500">2 months</p></div><div class="rounded-xl border border-violet-400/20 bg-slate-950/60 p-3 text-center"><p class="text-lg font-extrabold text-white">$10</p><p class="text-[10px] text-slate-500">5 months</p></div></div><button @click="showByokModal = true" class="w-full mt-6 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-500 px-4 py-3 text-sm font-bold text-white hover:from-violet-400 hover:to-indigo-400 transition">Configure BYOK</button><p class="text-[11px] text-slate-500 text-center mt-3">Platform fee only; provider bills remain yours.</p></div>
+                <div class="rounded-3xl border border-amber-400/30 bg-gradient-to-br from-amber-950/40 via-indigo-950/30 to-slate-900/90 p-7 shadow-xl"><div class="flex items-center justify-between"><p class="text-xs uppercase tracking-wider text-amber-300 font-semibold">Managed Pro</p><i class="fa-solid fa-crown text-amber-300"></i></div><h3 class="text-3xl font-extrabold text-white mt-2">$169 <span class="text-sm font-medium text-slate-500">/ month</span></h3><p class="text-sm text-slate-400 leading-7 mt-3">Managed API access, expanded usage, priority workflow support, and the complete NexusLeads enrichment pipeline.</p><ul class="text-xs text-slate-300 space-y-2 mt-5"><li><i class="fa-solid fa-check text-emerald-400 mr-2"></i>Managed provider capacity</li><li><i class="fa-solid fa-check text-emerald-400 mr-2"></i>Unlimited plan workflow</li><li><i class="fa-solid fa-check text-emerald-400 mr-2"></i>Priority support</li></ul><a href="https://www.paypal.me/Connectwithbayezid" target="_blank" rel="noopener noreferrer" class="w-full mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-[#0070ba] px-4 py-3 text-sm font-bold text-white shadow-lg shadow-sky-950/40 hover:bg-[#005ea6] transition"><i class="fa-brands fa-paypal text-lg"></i> Pay with PayPal</a><p class="text-[11px] text-slate-500 text-center mt-3">Secure redirect: paypal.me/Connectwithbayezid</p></div>
             </div>
         </section>
+
+        <!-- FAQ -->
+        <section id="faq" class="mb-12 scroll-mt-24">
+            <div class="grid lg:grid-cols-[.8fr_1.2fr] gap-6 items-start"><div><p class="text-xs uppercase tracking-[0.25em] text-cyan-300 font-semibold">Answers before you start</p><h2 class="text-3xl sm:text-4xl font-extrabold text-white mt-2">Frequently asked questions.</h2><p class="text-sm text-slate-400 leading-7 mt-3">Clear expectations make a better workflow. If your question is not here, contact support and we will help you choose the right setup.</p><a href="mailto:support@sayadbayezid.com" class="inline-flex items-center gap-2 mt-5 text-sm font-semibold text-cyan-300 hover:text-cyan-200">Contact support <i class="fa-solid fa-arrow-right"></i></a></div><div class="space-y-3"> <div x-data="{ open: false }" class="rounded-2xl border border-slate-800 bg-slate-900/75"><button @click="open = !open" class="w-full flex items-center justify-between gap-4 p-5 text-left"><span class="font-semibold text-white">What does NexusLeads collect?</span><i class="fa-solid" :class="open ? 'fa-minus text-cyan-300' : 'fa-plus text-slate-400'"></i></button><div x-show="open" x-collapse class="px-5 pb-5 text-sm leading-7 text-slate-400">It searches public business information such as business name, category, address, website, rating, public phone numbers, public email signals, and public social links. It does not access private account data.</div></div><div x-data="{ open: false }" class="rounded-2xl border border-slate-800 bg-slate-900/75"><button @click="open = !open" class="w-full flex items-center justify-between gap-4 p-5 text-left"><span class="font-semibold text-white">Does the app send emails or WhatsApp messages automatically?</span><i class="fa-solid" :class="open ? 'fa-minus text-cyan-300' : 'fa-plus text-slate-400'"></i></button><div x-show="open" x-collapse class="px-5 pb-5 text-sm leading-7 text-slate-400">No. It prepares drafts for review. You decide which leads to select, what to edit, and when to contact someone.</div></div><div x-data="{ open: false }" class="rounded-2xl border border-slate-800 bg-slate-900/75"><button @click="open = !open" class="w-full flex items-center justify-between gap-4 p-5 text-left"><span class="font-semibold text-white">How does BYOK pricing work?</span><i class="fa-solid" :class="open ? 'fa-minus text-cyan-300' : 'fa-plus text-slate-400'"></i></button><div x-show="open" x-collapse class="px-5 pb-5 text-sm leading-7 text-slate-400">BYOK means Bring Your Own Keys. The $3 one-month, $5 two-month, and $10 five-month options are NexusLeads platform fees. Google, Gemini, or other provider charges are billed separately by those providers.</div></div><div x-data="{ open: false }" class="rounded-2xl border border-slate-800 bg-slate-900/75"><button @click="open = !open" class="w-full flex items-center justify-between gap-4 p-5 text-left"><span class="font-semibold text-white">Can I push only selected leads to Google Sheets?</span><i class="fa-solid" :class="open ? 'fa-minus text-cyan-300' : 'fa-plus text-slate-400'"></i></button><div x-show="open" x-collapse class="px-5 pb-5 text-sm leading-7 text-slate-400">Yes. Turn Auto-Push off, review the returned leads, check the rows you want, and use Sync Selected. This keeps the final batch under your control.</div></div><div x-data="{ open: false }" class="rounded-2xl border border-slate-800 bg-slate-900/75"><button @click="open = !open" class="w-full flex items-center justify-between gap-4 p-5 text-left"><span class="font-semibold text-white">Is a Google service account required?</span><i class="fa-solid" :class="open ? 'fa-minus text-cyan-300' : 'fa-plus text-slate-400'"></i></button><div x-show="open" x-collapse class="px-5 pb-5 text-sm leading-7 text-slate-400">For Sheets export, you can securely configure your own service account or share the target Sheet with the platform editor address shown in the dashboard.</div></div></div></div>
+        </section>
+
+        <!-- Newsletter article block -->
+        <section id="newsletter" class="mb-4 scroll-mt-24"><div class="rounded-3xl border border-emerald-400/20 bg-gradient-to-r from-emerald-950/40 via-slate-900 to-cyan-950/40 p-6 sm:p-8 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6"><div><p class="text-xs uppercase tracking-[0.25em] text-emerald-300 font-semibold">NexusLeads notes</p><h2 class="text-2xl sm:text-3xl font-extrabold text-white mt-2">A short field guide for better prospecting.</h2><p class="text-sm text-slate-400 leading-7 mt-3 max-w-2xl">Get practical articles about local lead research, ethical outreach, agency pipeline design, and using verified public signals without turning your workflow into a black box.</p></div><form @submit.prevent="submitNewsletter" class="w-full lg:max-w-md flex flex-col sm:flex-row gap-2"><input type="email" x-model="newsletterEmail" required placeholder="you@company.com" class="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-emerald-400"><button type="submit" :disabled="newsletterSubmitting" class="rounded-xl bg-emerald-400 px-5 py-3 text-sm font-bold text-slate-950 hover:bg-emerald-300 transition disabled:opacity-60"><span x-text="newsletterSubmitting ? 'Saving...' : 'Subscribe' "></span></button><p x-show="newsletterStatus" x-text="newsletterStatus" class="sm:col-span-2 text-xs text-emerald-300"></p></form></div></section>
     </main>
 
-    <!-- Footer -->
-    <footer class="border-t border-slate-800 bg-slate-900/50 py-8 text-center text-slate-500 text-xs">
-        <div class="max-w-7xl mx-auto px-4">
-            <p class="mb-2">&copy; 2026 NexusLeads by <a href="https://smartgentools.com" class="text-cyan-400 hover:underline">SmartGen Tools</a>. All rights reserved.</p>
-            <p class="text-slate-400 font-medium">Developed by <a href="https://sayadbayezid.com" class="text-indigo-400 hover:underline">Sayad Md Bayezid Hosan</a> & <span class="text-indigo-400">jenny</span></p>
-            <p class="mt-4 opacity-50">Securely powered by Cloudflare Edge & GitHub Pages.</p>
+    <!-- Professional multi-column footer -->
+    <footer class="border-t border-slate-800 bg-slate-950/95 pt-12 pb-7">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1.2fr_1fr_1fr_1fr] gap-9 pb-10">
+                <div><a href="#home" class="inline-flex items-center gap-3"><span class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-500 to-cyan-400 flex items-center justify-center"><i class="fa-solid fa-radar text-white"></i></span><span class="text-xl font-extrabold text-white">NexusLeads</span></a><p class="text-sm text-slate-400 leading-7 mt-4 max-w-xs">Verified public business research for agencies, freelancers, and growth teams that want a calmer path from search to outreach.</p><div class="flex items-center gap-3 mt-5"><a href="https://smartgentools.com" target="_blank" rel="noopener" aria-label="SmartGen Tools" class="h-9 w-9 rounded-xl border border-slate-700 bg-slate-900 flex items-center justify-center text-cyan-300 hover:border-cyan-400 transition"><i class="fa-solid fa-globe"></i></a><a href="https://sayadbayezid.com" target="_blank" rel="noopener" aria-label="Sayad Md Bayezid Hosan" class="h-9 w-9 rounded-xl border border-slate-700 bg-slate-900 flex items-center justify-center text-violet-300 hover:border-violet-400 transition"><i class="fa-solid fa-user"></i></a><a href="mailto:support@sayadbayezid.com" aria-label="Email support" class="h-9 w-9 rounded-xl border border-slate-700 bg-slate-900 flex items-center justify-center text-emerald-300 hover:border-emerald-400 transition"><i class="fa-solid fa-envelope"></i></a></div></div>
+                <div><p class="text-sm font-bold text-white mb-4">Product</p><div class="space-y-3 text-sm text-slate-400"><a href="#operations" class="block hover:text-cyan-300 transition">Try the dashboard</a><a href="#use-cases" class="block hover:text-cyan-300 transition">Use cases</a><a href="#pricing" class="block hover:text-cyan-300 transition">Pricing</a><a href="#how-it-works" class="block hover:text-cyan-300 transition">How it works</a></div></div>
+                <div><p class="text-sm font-bold text-white mb-4">Resources</p><div class="space-y-3 text-sm text-slate-400"><a href="#prompt-library" class="block hover:text-violet-300 transition">Prompt library</a><a href="#proof" class="block hover:text-violet-300 transition">Live proof</a><a href="#reviews" class="block hover:text-violet-300 transition">Client voice</a><a href="#faq" class="block hover:text-violet-300 transition">FAQ</a><a href="#newsletter" class="block hover:text-violet-300 transition">NexusLeads notes</a></div></div>
+                <div><p class="text-sm font-bold text-white mb-4">Company</p><div class="space-y-3 text-sm text-slate-400"><a href="https://sayadbayezid.com" target="_blank" rel="noopener" class="block hover:text-amber-300 transition">About the founder</a><a href="mailto:info@sayadbayezid.com" class="block hover:text-amber-300 transition">Contact</a><a href="mailto:support@sayadbayezid.com" class="block hover:text-amber-300 transition">Support</a><a href="https://smartgentools.com" target="_blank" rel="noopener" class="block hover:text-amber-300 transition">SmartGen Tools</a></div></div>
+            </div>
+            <div class="border-t border-slate-800 pt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-slate-500"><p>&copy; 2026 NexusLeads by <a href="https://smartgentools.com" class="text-cyan-300 hover:underline">SmartGen Tools</a>. All rights reserved.</p><p class="text-slate-400">Developed by <a href="https://sayadbayezid.com" class="text-violet-300 hover:underline">Sayad Md Bayezid Hosan</a> &amp; <span class="text-violet-300">jenny</span></p><p class="text-slate-600">Cloudflare Edge &amp; GitHub Pages</p></div>
         </div>
     </footer>
 
@@ -520,17 +566,17 @@
                     <p class="text-xs text-slate-400">Free Tier allows <strong class="text-cyan-400">100 leads per day</strong>. Used: <strong class="text-amber-400" x-text="credits.used"></strong> / <strong class="text-white" x-text="credits.limit"></strong>.</p>
                 </div>
                 <div class="rounded-xl bg-gradient-to-br from-indigo-950/40 to-slate-950 p-4 border border-indigo-500/30">
-                    <p class="font-bold text-indigo-300 mb-1">Pro Tier ($169 / month)</p>
-                    <p class="text-xs text-slate-300 mb-2">Calculated API cost ($112.65/mo for Google Maps Pro + Firecrawl Standard + Gemini Flash-Lite at full daily volume) plus our 50% professional margin.</p>
+                    <p class="font-bold text-violet-300 mb-1">BYOK Platform Fee</p>
+                    <p class="text-xs text-slate-300 mb-2">Bring your own provider keys and choose a simple platform plan: $3 for 1 month, $5 for 2 months, or $10 for 5 months. Provider billing remains separate.</p>
                     <ul class="text-xs space-y-1 text-slate-400">
-                        <li><i class="fa-solid fa-check text-emerald-400 mr-1.5"></i> Unlimited daily searches & verified leads</li>
-                        <li><i class="fa-solid fa-check text-emerald-400 mr-1.5"></i> Multi-tab automated Google Sheets sync</li>
-                        <li><i class="fa-solid fa-check text-emerald-400 mr-1.5"></i> All 11 outreach skill templates & WhatsApp drafts</li>
+                        <li><i class="fa-solid fa-check text-emerald-400 mr-1.5"></i> Secure encrypted key storage</li>
+                        <li><i class="fa-solid fa-check text-emerald-400 mr-1.5"></i> Provider costs stay in your account</li>
+                        <li><i class="fa-solid fa-check text-emerald-400 mr-1.5"></i> All 11 outreach skill templates</li>
                     </ul>
                 </div>
                 <div class="rounded-xl bg-slate-950 p-4 border border-slate-800 text-xs text-slate-400">
-                    <p class="font-semibold text-slate-200 mb-1">Alternative: BYOK Mode ($5/mo tool fee)</p>
-                    <p>Connect your own Google Maps, Firecrawl, and Gemini API keys in the <strong>BYOK Config</strong> drawer. You pay zero markup on API costs — you only pay your direct provider bills plus the $5/mo NexusLeads tool subscription.</p>
+                    <p class="font-semibold text-slate-200 mb-1">Managed Pro: $169/mo</p>
+                    <p>For users who want NexusLeads-managed provider capacity, expanded usage, and priority workflow support. Use PayPal from the pricing section to request the managed plan.</p>
                 </div>
             </div>
             <div class="mt-6 flex items-center justify-end space-x-3">
@@ -624,6 +670,11 @@
         </div>
     </div>
 
+    <!-- One-time newsletter popup -->
+    <div x-show="showNewsletterPopup" class="fixed inset-0 z-[55] flex items-center justify-center bg-slate-950/85 backdrop-blur-sm p-4" style="display: none;">
+        <div @click.away="dismissNewsletterPopup" class="bg-slate-900 border border-emerald-400/30 rounded-3xl max-w-lg w-full p-7 shadow-2xl relative overflow-hidden"><div class="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-emerald-400/10 blur-3xl pointer-events-none"></div><div class="relative"><div class="flex items-start justify-between gap-4"><div><span class="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-400/15 text-emerald-300"><i class="fa-solid fa-envelope-open-text"></i></span><p class="text-xs uppercase tracking-[0.25em] text-emerald-300 font-semibold mt-5">NexusLeads notes</p><h2 class="text-2xl font-extrabold text-white mt-2">Better leads start with better questions.</h2></div><button @click="dismissNewsletterPopup" class="text-slate-500 hover:text-white" aria-label="Close newsletter popup"><i class="fa-solid fa-xmark text-lg"></i></button></div><p class="text-sm text-slate-400 leading-7 mt-4">Get occasional field notes about agency prospecting, verified public data, ethical outreach, and practical growth systems. No spam and no automatic outreach.</p><form @submit.prevent="submitNewsletter" class="mt-5 flex flex-col sm:flex-row gap-2"><input type="email" x-model="newsletterEmail" required placeholder="you@company.com" class="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-emerald-400"><button type="submit" :disabled="newsletterSubmitting" class="rounded-xl bg-emerald-400 px-4 py-3 text-sm font-bold text-slate-950 hover:bg-emerald-300 transition disabled:opacity-60"><span x-text="newsletterSubmitting ? 'Saving...' : 'Join free' "></span></button></form><p x-show="newsletterStatus" x-text="newsletterStatus" class="text-xs text-emerald-300 mt-3"></p><button @click="dismissNewsletterPopup" class="text-xs text-slate-500 hover:text-slate-300 mt-4">Maybe later</button></div></div>
+    </div>
+
     <!-- One-time successful collection popup -->
     <div x-show="showSuccessPopup" class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/85 backdrop-blur-sm p-4" style="display: none;">
         <div @click.away="dismissSuccessPopup" class="bg-slate-900 border border-emerald-400/30 rounded-3xl max-w-lg w-full p-7 shadow-2xl relative overflow-hidden">
@@ -664,6 +715,7 @@
                 showByokModal: false,
                 showAuthModal: false,
                 showSuccessPopup: false,
+                showNewsletterPopup: false,
                 showReviewModal: false,
                 newsletterEmail: '',
                 newsletterSubmitting: false,
@@ -836,6 +888,7 @@
                         console.warn('Could not load daily credits', e);
                     }
                     await this.loadReviews();
+                    this.maybeShowNewsletterPopup();
                 },
                 async loadReviews() {
                     try {
@@ -855,6 +908,16 @@
                 dismissSuccessPopup() {
                     this.showSuccessPopup = false;
                 },
+                maybeShowNewsletterPopup() {
+                    if (localStorage.getItem('nexusleads-newsletter-popup-shown') === '1') return;
+                    window.setTimeout(() => {
+                        if (!this.showSuccessPopup && !this.showAuthModal) this.showNewsletterPopup = true;
+                    }, 6500);
+                },
+                dismissNewsletterPopup() {
+                    localStorage.setItem('nexusleads-newsletter-popup-shown', '1');
+                    this.showNewsletterPopup = false;
+                },
                 openReviewModal() {
                     if (!this.authToken || !this.currentUser) {
                         this.showSuccessPopup = false;
@@ -873,11 +936,12 @@
                     try {
                         const headers = { 'Content-Type': 'application/json' };
                         if (this.authToken) headers['Authorization'] = 'Bearer ' + this.authToken;
-                        const res = await fetch(this.apiBase + '/api/newsletter', { method: 'POST', headers, body: JSON.stringify({ email: this.newsletterEmail, source: 'successful_collection_popup' }) });
+                        const res = await fetch(this.apiBase + '/api/newsletter', { method: 'POST', headers, body: JSON.stringify({ email: this.newsletterEmail, source: this.showNewsletterPopup ? 'newsletter_popup' : 'successful_collection_popup' }) });
                         const data = await res.json();
                         if (!res.ok || !data.success) throw new Error(data.error || 'Newsletter signup failed.');
                         this.newsletterStatus = data.message || 'You are subscribed.';
                         this.newsletterEmail = '';
+                        if (this.showNewsletterPopup) this.dismissNewsletterPopup();
                     } catch (error) {
                         this.newsletterStatus = error.message;
                     } finally {
