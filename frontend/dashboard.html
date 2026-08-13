@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="en" class="h-full bg-slate-950">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <title>NexusLeads Operations Center | Secure Dashboard</title>
+    <meta name="description" content="Private NexusLeads Operations Center for verified B2B lead research, enrichment, and Google Sheets export.">
+    <meta name="nexus-api-base" content="https://nexusleads-api.mahmudajenny6.workers.dev">
+    <link rel="canonical" href="https://jennymahmuda.github.io/automation-scrapped/dashboard.html">
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-7FPD269E1J"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-7FPD269E1J', { anonymize_ip: true });
+      window.nexusTrack = function(eventName, parameters = {}) {
+        if (typeof window.gtag === 'function') window.gtag('event', eventName, parameters);
+      };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; touch-action: manipulation; -webkit-text-size-adjust: 100%; overflow-x: hidden; }
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="min-h-full bg-slate-950 text-slate-100" x-data="leadApp()" x-init="initApp()">
+    <header class="sticky top-0 z-50 border-b border-slate-800/90 bg-slate-950/90 backdrop-blur-xl">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-[4.5rem] flex items-center justify-between gap-4">
+            <a href="./" class="flex items-center gap-3 shrink-0" aria-label="Back to NexusLeads home">
+                <span class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-indigo-500/20"><i class="fa-solid fa-radar text-white text-lg"></i></span>
+                <span class="text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-200 to-cyan-300 bg-clip-text text-transparent">NexusLeads</span>
+            </a>
+            <div class="flex items-center gap-2 sm:gap-3">
+                <span x-show="currentUser" x-cloak class="hidden sm:inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-300"><i class="fa-solid fa-shield-check"></i><span x-text="currentUser?.email"></span></span>
+                <span x-show="!currentUser" x-cloak class="hidden sm:inline-flex items-center gap-2 rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs text-amber-300"><i class="fa-solid fa-lock"></i> Login required</span>
+                <a href="./" class="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-200 hover:border-cyan-400/40 transition">Home</a>
+                <button x-show="currentUser" x-cloak @click="logout" class="rounded-xl bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition">Log out</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+        <div class="mb-8 rounded-3xl border border-indigo-500/20 bg-gradient-to-br from-indigo-950/60 via-slate-900/90 to-cyan-950/40 p-6 sm:p-8 shadow-2xl">
+            <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
+                <div>
+                    <p class="text-xs uppercase tracking-[0.25em] text-cyan-300 font-semibold">Private workspace</p>
+                    <h1 class="text-3xl sm:text-4xl font-extrabold text-white mt-2">Operations Center</h1>
+                    <p class="text-sm text-slate-400 leading-7 mt-3 max-w-2xl">Run verified public-business research, review results, create outreach drafts, and sync only the leads you choose to Google Sheets.</p>
+                </div>
+                <div class="flex flex-wrap gap-2 text-xs"><span class="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-emerald-300">Private account data</span><span class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-cyan-300">100 free leads daily</span></div>
+            </div>
+        </div>
+
+        <!-- Operations Center Section -->
+        <section id="operations" class="mb-10 scroll-mt-24">
+            <!-- Dashboard access gate for logged-out visitors -->
+            <div x-show="!currentUser" class="rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-950/40 via-slate-900/90 to-indigo-950/40 p-7 sm:p-10 shadow-2xl text-center relative overflow-hidden">
+                <div class="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-cyan-400/10 blur-3xl pointer-events-none"></div>
+                <div class="relative max-w-2xl mx-auto">
+                    <span class="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-cyan-400/10 text-cyan-300 text-xl"><i class="fa-solid fa-lock"></i></span>
+                    <p class="text-xs uppercase tracking-[0.25em] text-cyan-300 font-semibold mt-5">Private Operations Center</p>
+                    <h2 class="text-3xl sm:text-4xl font-extrabold text-white mt-2">Log in to open your lead dashboard.</h2>
+                    <p class="text-sm sm:text-base text-slate-400 leading-7 mt-4">Your searches, credits, saved Sheet settings, API configuration, and lead results are private to your account. Create a free account to start with 100 leads per day.</p>
+                    <div class="flex flex-col sm:flex-row justify-center gap-3 mt-7">
+                        <button @click="showAuthModal = true; authMode = 'login'" class="inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-400/30 bg-indigo-500/10 px-5 py-3.5 text-sm font-bold text-indigo-200 hover:bg-indigo-500/20 transition"><i class="fa-solid fa-right-to-bracket"></i> Log in</button>
+                        <button @click="showAuthModal = true; authMode = 'signup'" class="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-500 px-5 py-3.5 text-sm font-bold text-white shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 transition"><i class="fa-solid fa-user-plus"></i> Create free account</button>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-4">No dashboard data is shown publicly. Public sections remain available for product information.</p>
+                </div>
+            </div>
+
+            <!-- Live Dashboard for authenticated users -->
+            <div x-show="currentUser" x-cloak>
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <p class="text-xs uppercase tracking-[0.25em] text-cyan-400 font-semibold">Operations Center</p>
+                    <h2 class="text-2xl font-bold text-white mt-1">Live Preview Dashboard</h2>
+                </div>
+                <span class="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-300">
+                    <span class="h-2 w-2 rounded-full" :class="loading ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'"></span>
+                    <span x-text="loading ? 'Processing live' : 'System ready'"></span>
+                </span>
+            </div>
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                <div class="rounded-2xl border border-slate-800 bg-slate-900/75 p-4 shadow-xl">
+                    <p class="text-xs uppercase tracking-wider text-slate-500">Leads found</p>
+                    <p class="text-3xl font-extrabold text-white mt-2" x-text="metrics.found"></p>
+                    <p class="text-xs text-slate-500 mt-1">Current run</p>
+                </div>
+                <div class="rounded-2xl border border-slate-800 bg-slate-900/75 p-4 shadow-xl">
+                    <p class="text-xs uppercase tracking-wider text-slate-500">Verified</p>
+                    <p class="text-3xl font-extrabold text-emerald-400 mt-2" x-text="metrics.verified"></p>
+                    <p class="text-xs text-slate-500 mt-1">Public business data</p>
+                </div>
+                <div class="rounded-2xl border border-slate-800 bg-slate-900/75 p-4 shadow-xl">
+                    <p class="text-xs uppercase tracking-wider text-slate-500">Emails found</p>
+                    <p class="text-3xl font-extrabold text-cyan-400 mt-2" x-text="metrics.emails"></p>
+                    <p class="text-xs text-slate-500 mt-1">Publicly listed</p>
+                </div>
+                <div class="rounded-2xl border border-slate-800 bg-slate-900/75 p-4 shadow-xl">
+                    <p class="text-xs uppercase tracking-wider text-slate-500">Sheet sync</p>
+                    <p class="text-lg font-bold mt-3" :class="metrics.sheet === 'Synced' ? 'text-emerald-400' : 'text-slate-300'" x-text="metrics.sheet"></p>
+                    <p class="text-xs text-slate-500 mt-1">Google Sheets</p>
+                </div>
+            </div>
+            <div class="rounded-2xl border border-slate-800 bg-slate-900/75 p-5 shadow-xl">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-sm font-semibold text-slate-200">Live pipeline</span>
+                    <span class="text-xs text-slate-400" x-text="progress + '%' "></span>
+                </div>
+                <div class="h-2 rounded-full bg-slate-800 overflow-hidden">
+                    <div class="h-full rounded-full bg-gradient-to-r from-indigo-500 via-cyan-400 to-emerald-400 transition-all duration-500" :style="`width: ${progress}%`"></div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 text-xs">
+                    <div class="flex items-center gap-2" :class="stage >= 1 ? 'text-emerald-300' : 'text-slate-600'"><i class="fa-solid fa-location-dot"></i> Discover businesses</div>
+                    <div class="flex items-center gap-2" :class="stage >= 2 ? 'text-emerald-300' : 'text-slate-600'"><i class="fa-solid fa-shield-check"></i> Verify public details</div>
+                    <div class="flex items-center gap-2" :class="stage >= 3 ? 'text-emerald-300' : 'text-slate-600'"><i class="fa-solid fa-table-cells"></i> Sync Google Sheet</div>
+                </div>
+                <div class="mt-4 border-t border-slate-800 pt-3 max-h-28 overflow-y-auto space-y-1">
+                    <template x-for="(event, index) in activity" :key="index">
+                        <p class="text-xs text-slate-400"><span class="text-slate-600 mr-2" x-text="event.time"></span><span x-text="event.text"></span></p>
+                    </template>
+                </div>
+            </div>
+        </section>
+
+        <!-- Search Card -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl mb-10 relative overflow-hidden">
+            <div class="absolute -right-20 -top-20 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+            
+            <form @submit.prevent="searchLeads" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="sm:col-span-3">
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-cyan-400 mb-2">AI Research Prompt (optional)</label>
+                    <div class="relative">
+                        <span class="absolute top-3 left-0 pl-3 flex items-start pointer-events-none text-cyan-400">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        </span>
+                        <textarea x-model="prompt" rows="2" placeholder="Example: Find dental clinics in Austin with a public phone number and email" class="w-full pl-10 pr-4 py-3 bg-slate-950 border border-cyan-500/30 rounded-xl text-slate-100 placeholder-slate-600 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition resize-y"></textarea>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-1">Use this field instead of keyword and location when you want Gemini to interpret the request.</p>
+                </div>
+                <div class="sm:col-span-3">
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-violet-300 mb-2">Outreach Marketing Style (optional)</label>
+                    <textarea x-model="outreachStyle" rows="2" placeholder="Example: concise, friendly, consultative, focus on websites and measurable lead growth" class="w-full px-4 py-3 bg-slate-950 border border-violet-500/30 rounded-xl text-slate-100 placeholder-slate-600 focus:outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-400 transition resize-y"></textarea>
+                    <p class="text-xs text-slate-500 mt-1">Gemini uses this style to create drafts only. Nothing is sent automatically.</p>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Draft Skill</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-violet-400"><i class="fa-solid fa-pen-nib"></i></span>
+                        <select x-model="draftType" class="w-full pl-10 pr-4 py-3 bg-slate-950 border border-violet-500/30 rounded-xl text-slate-100 focus:outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-400 transition">
+                            <option value="general">Professional Introduction</option>
+                            <option value="proposal">Project Proposal</option>
+                            <option value="marketing">Marketing Growth</option>
+                            <option value="offering">Service Offering</option>
+                            <option value="partnership">Business Partnership</option>
+                            <option value="website">Website Build</option>
+                            <option value="seo">SEO System</option>
+                            <option value="developer">Developer Support</option>
+                            <option value="real_estate">Real Estate Digital</option>
+                            <option value="freelancer">Freelancer Collaboration</option>
+                            <option value="follow_up">Follow-up</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Keyword / Industry</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                            <i class="fa-solid fa-briefcase"></i>
+                        </span>
+                        <input type="text" x-model="keyword" placeholder="e.g. Dental Clinic, SaaS" 
+                            class="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Location</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                            <i class="fa-solid fa-location-dot"></i>
+                        </span>
+                        <input type="text" x-model="location" placeholder="e.g. Austin, TX or near downtown" 
+                            class="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Max Leads per Search</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-amber-400"><i class="fa-solid fa-layer-group"></i></span>
+                        <select x-model.number="maxResults" class="w-full pl-10 pr-4 py-3 bg-slate-950 border border-amber-500/30 rounded-xl text-slate-100 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition">
+                            <option :value="20">20 leads</option>
+                            <option :value="25">25 leads</option>
+                            <option :value="30">30 leads</option>
+                            <option :value="40">40 leads</option>
+                            <option :value="50">50 leads</option>
+                        </select>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-1">The system searches up to 120 public candidates and enriches them in safe five-lead batches.</p>
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400">Google Sheet URL / ID</label>
+                        <button type="button" @click="checkSheetAccess" :disabled="sheetChecking" class="text-xs text-cyan-400 hover:text-cyan-300 underline font-medium">
+                            <span x-text="sheetChecking ? 'Checking...' : 'Check Sheet Access'"></span>
+                        </button>
+                    </div>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                            <i class="fa-solid fa-link"></i>
+                        </span>
+                        <input type="text" x-model="sheetId" @input="saveSheetConfig()" placeholder="https://docs.google.com/spreadsheets/d/..."
+                            class="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
+                    </div>
+                    <div class="mt-2 text-xs text-slate-400 bg-slate-950/80 p-3 rounded-xl border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                        <div>
+                            <span>Share your sheet with Editor:</span>
+                            <strong class="text-cyan-300 ml-1" x-text="serviceAccountEmail"></strong>
+                        </div>
+                        <button type="button" @click="copyText(serviceAccountEmail)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs transition"><i class="fa-solid fa-copy mr-1"></i> Copy Email</button>
+                    </div>
+                </div>
+
+                <div class="sm:col-span-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-2">
+                    <label class="inline-flex items-center gap-3 text-sm text-slate-300 cursor-pointer select-none">
+                        <input type="checkbox" x-model="generateOutreach" class="h-4 w-4 accent-violet-500 rounded border-slate-700 bg-slate-950">
+                        <span><strong class="text-violet-300">Generate outreach drafts</strong><span class="block text-xs text-slate-500">Create Email and WhatsApp drafts for each lead</span></span>
+                    </label>
+                    <label class="inline-flex items-center gap-3 text-sm text-slate-300 cursor-pointer select-none">
+                        <input type="checkbox" x-model="autoPushEnabled" @change="saveSheetConfig()" class="h-4 w-4 accent-cyan-500 rounded border-slate-700 bg-slate-950">
+                        <span><strong class="text-cyan-300">Auto-Push to Google Sheets</strong><span class="block text-xs text-slate-500" x-text="autoPushEnabled ? 'Enabled — all returned leads push automatically' : 'Off — choose leads below and use Sync Selected'"></span></span>
+                    </label>
+                    <label class="inline-flex items-center gap-3 text-sm text-slate-300 cursor-pointer select-none">
+                        <input type="checkbox" x-model="verifiedOnly" class="h-4 w-4 accent-emerald-500 rounded border-slate-700 bg-slate-950">
+                        <span><strong class="text-emerald-300">Verified leads only</strong><span class="block text-xs text-slate-500">Require both public phone and email</span></span>
+                    </label>
+                    <button type="submit" :disabled="loading" 
+                        class="px-8 py-3.5 bg-gradient-to-r from-indigo-600 to-cyan-500 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition flex items-center space-x-2 disabled:opacity-50">
+                        <i class="fa-solid fa-wand-magic-sparkles" :class="{'fa-spin': loading}"></i>
+                        <span x-text="loading ? 'Scraping & Verifying Leads...' : 'Start Lead Generation'"></span>
+                    </button>
+                </div>
+            </form>
+            <div x-show="message" x-text="message" class="mt-4 rounded-xl border border-indigo-500/20 bg-indigo-500/10 px-4 py-3 text-sm text-indigo-200"></div>
+        </div>
+
+        <!-- Results Section -->
+        <div x-show="leads.length > 0 || loading" class="space-y-6">
+            <div class="flex items-center justify-between">
+                <h2 class="text-xl font-bold flex items-center space-x-2">
+                    <i class="fa-solid fa-list-check text-indigo-400"></i>
+                    <span>Discovered Leads</span>
+                    <span class="text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 ml-2" x-text="leads.length"></span>
+                </h2>
+                <div class="flex flex-wrap items-center justify-end gap-2">
+                    <label x-show="leads.length > 0" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-700 bg-slate-900 text-xs text-slate-300 cursor-pointer">
+                        <input type="checkbox" :checked="allSelected()" @change="toggleAll($event.target.checked)" class="h-4 w-4 accent-indigo-500 rounded border-slate-700 bg-slate-950">
+                        <span>Select All</span>
+                    </label>
+                    <button @click="toggleAll(false)" x-show="selectedCount() > 0" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg transition">Clear</button>
+                    <button @click="syncSelected" x-show="leads.length > 0" :disabled="manualPushLoading || selectedCount() === 0" class="px-4 py-2 bg-gradient-to-r from-emerald-600 to-cyan-500 hover:from-emerald-500 hover:to-cyan-400 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition flex items-center space-x-2">
+                        <i class="fa-solid fa-cloud-arrow-up" :class="{'fa-spin': manualPushLoading}"></i>
+                        <span x-text="manualPushLoading ? 'Syncing...' : 'Sync Selected (' + selectedCount() + ')' "></span>
+                    </button>
+                    <button @click="exportCSV" x-show="leads.length > 0" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium rounded-lg transition flex items-center space-x-2">
+                        <i class="fa-solid fa-download"></i>
+                        <span>Export CSV</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl shadow-xl overflow-hidden backdrop-blur-xl">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-800 text-xs font-semibold uppercase tracking-wider text-slate-400 bg-slate-950/50">
+                                <th class="p-4 w-12">
+                                    <input type="checkbox" :checked="allSelected()" @change="toggleAll($event.target.checked)" aria-label="Select all leads" class="h-4 w-4 accent-indigo-500 rounded border-slate-700 bg-slate-950">
+                                </th>
+                                <th class="p-4">Business Name</th>
+                                <th class="p-4">Category</th>
+                                <th class="p-4">Phone</th>
+                                <th class="p-4">Email</th>
+                                <th class="p-4">Socials</th>
+                                <th class="p-4">Drafts</th>
+                                <th class="p-4">Address</th>
+                                <th class="p-4">Website</th>
+                                <th class="p-4">Rating</th>
+                                <th class="p-4">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800 text-sm">
+                            <template x-for="lead in leads" :key="lead.name">
+                                <tr class="hover:bg-slate-800/50 transition">
+                                    <td class="p-4 align-top">
+                                        <input type="checkbox" x-model="lead.selected" :aria-label="'Select ' + lead.name" class="h-4 w-4 accent-indigo-500 rounded border-slate-700 bg-slate-950">
+                                    </td>
+                                    <td class="p-4 font-semibold text-white" x-text="lead.name"></td>
+                                    <td class="p-4 text-slate-300" x-text="lead.category"></td>
+                                    <td class="p-4 text-slate-300" x-text="lead.phone || 'Not listed'"></td>
+                                    <td class="p-4">
+                                        <a :href="lead.email ? 'mailto:' + lead.email : null" class="text-cyan-400 hover:underline" x-show="lead.email" x-text="lead.email"></a>
+                                        <span x-show="!lead.email" class="text-slate-600">Not listed</span>
+                                    </td>
+                                    <td class="p-4">
+                                        <div class="flex items-center space-x-2 text-base">
+                                            <a :href="lead.facebook" target="_blank" title="Facebook" class="text-blue-400 hover:text-blue-300" x-show="lead.facebook"><i class="fa-brands fa-facebook"></i></a>
+                                            <a :href="lead.instagram" target="_blank" title="Instagram" class="text-pink-400 hover:text-pink-300" x-show="lead.instagram"><i class="fa-brands fa-instagram"></i></a>
+                                            <a :href="lead.twitter" target="_blank" title="Twitter/X" class="text-sky-400 hover:text-sky-300" x-show="lead.twitter"><i class="fa-brands fa-x-twitter"></i></a>
+                                            <a :href="lead.linkedin" target="_blank" title="LinkedIn" class="text-blue-500 hover:text-blue-400" x-show="lead.linkedin"><i class="fa-brands fa-linkedin"></i></a>
+                                            <span class="text-slate-600 text-xs" x-show="!lead.facebook && !lead.instagram && !lead.twitter && !lead.linkedin">None</span>
+                                        </div>
+                                    </td>
+                                    <td class="p-4">
+                                        <div class="flex flex-col gap-2 min-w-[150px]">
+                                            <span x-show="lead.draft_type" class="text-violet-300 text-xs font-semibold" x-text="lead.draft_type"></span>
+                                            <button @click="copyText(lead.email_draft)" x-show="lead.email_draft" class="text-left text-xs px-2 py-1 rounded bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 transition"><i class="fa-solid fa-envelope mr-1"></i> Copy Email Draft</button>
+                                            <button @click="copyText(lead.whatsapp_draft)" x-show="lead.whatsapp_draft" class="text-left text-xs px-2 py-1 rounded bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 transition"><i class="fa-brands fa-whatsapp mr-1"></i> Copy WhatsApp Draft</button>
+                                            <span x-show="!lead.email_draft && !lead.whatsapp_draft" class="text-slate-600 text-xs">Not generated</span>
+                                        </div>
+                                    </td>
+                                    <td class="p-4 text-slate-400" x-text="lead.address"></td>
+                                    <td class="p-4">
+                                        <a :href="lead.website" target="_blank" class="text-indigo-400 hover:underline flex items-center space-x-1" x-show="lead.website !== 'N/A'">
+                                            <span x-text="lead.website"></span>
+                                            <i class="fa-solid fa-external-link text-xs"></i>
+                                        </a>
+                                        <span x-show="lead.website === 'N/A'" class="text-slate-600">N/A</span>
+                                    </td>
+                                    <td class="p-4">
+                                        <span class="inline-flex items-center text-amber-400 font-medium">
+                                            <i class="fa-solid fa-star mr-1 text-xs"></i> <span x-text="lead.rating"></span>
+                                        </span>
+                                    </td>
+                                    <td class="p-4">
+                                        <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" x-text="lead.status"></span>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Pro Upgrade Modal -->
+    <div x-show="showPricingModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4" style="display: none;">
+        <div @click.away="showPricingModal = false" class="bg-slate-900 border border-amber-500/30 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative overflow-hidden">
+            <div class="absolute -right-16 -top-16 w-48 h-48 bg-amber-500/10 rounded-full blur-2xl pointer-events-none"></div>
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center space-x-2 text-amber-400 font-bold text-lg">
+                    <i class="fa-solid fa-crown"></i>
+                    <span>NexusLeads Pro & Daily Limit</span>
+                </div>
+                <button @click="showPricingModal = false" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="space-y-4 text-sm text-slate-300">
+                <div class="rounded-xl bg-slate-950 p-4 border border-slate-800">
+                    <p class="font-semibold text-white mb-1">Your Daily Quota Status</p>
+                    <p class="text-xs text-slate-400">Free Tier allows <strong class="text-cyan-400">100 leads per day</strong>. Used: <strong class="text-amber-400" x-text="credits.used"></strong> / <strong class="text-white" x-text="credits.limit"></strong>.</p>
+                </div>
+                <div class="rounded-xl bg-gradient-to-br from-indigo-950/40 to-slate-950 p-4 border border-indigo-500/30">
+                    <p class="font-bold text-violet-300 mb-1">BYOK Platform Fee</p>
+                    <p class="text-xs text-slate-300 mb-2">Bring your own provider keys and choose a simple platform plan: $3 for 1 month, $5 for 2 months, or $10 for 5 months. Provider billing remains separate.</p>
+                    <ul class="text-xs space-y-1 text-slate-400">
+                        <li><i class="fa-solid fa-check text-emerald-400 mr-1.5"></i> Secure encrypted key storage</li>
+                        <li><i class="fa-solid fa-check text-emerald-400 mr-1.5"></i> Provider costs stay in your account</li>
+                        <li><i class="fa-solid fa-check text-emerald-400 mr-1.5"></i> All 11 outreach skill templates</li>
+                    </ul>
+                </div>
+                <div class="rounded-xl bg-slate-950 p-4 border border-slate-800 text-xs text-slate-400">
+                    <p class="font-semibold text-slate-200 mb-1">Managed Pro: $169/mo</p>
+                    <p>For users who want NexusLeads-managed provider capacity, expanded usage, and priority workflow support. Use PayPal from the pricing section to request the managed plan.</p>
+                </div>
+            </div>
+            <div class="mt-6 flex items-center justify-end space-x-3">
+                <button @click="showPricingModal = false" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg transition">Close</button>
+                <button @click="alert('Redirecting to secure upgrade checkout...'); showPricingModal = false;" class="px-5 py-2 bg-gradient-to-r from-amber-500 to-indigo-600 text-white text-xs font-bold rounded-lg shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40 transition">Upgrade to Pro ($169/mo)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- BYOK Config Modal (With Contextual Links) -->
+    <div x-show="showByokModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4" style="display: none;">
+        <div @click.away="showByokModal = false" class="bg-slate-900 border border-indigo-500/35 rounded-3xl max-w-lg w-full p-7 shadow-2xl relative overflow-hidden">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center space-x-2.5 text-indigo-400 font-bold text-lg">
+                    <i class="fa-solid fa-key"></i>
+                    <span>BYOK & API Key Configuration</span>
+                </div>
+                <button @click="showByokModal = false" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="space-y-4 text-sm text-slate-300">
+                <p class="text-xs text-slate-400 leading-relaxed">
+                    Provide your own API keys for unlimited searches with zero markup. Keys are securely encrypted with AES-256-GCM on Cloudflare backend.
+                </p>
+
+                <!-- Google Maps Key -->
+                <div class="bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label class="block text-xs font-bold text-slate-200">Google Maps API Key (New)</label>
+                        <a href="https://console.cloud.google.com/google/maps-apis/credentials" target="_blank" rel="noopener noreferrer" class="text-[11px] text-cyan-300 hover:text-cyan-200 underline flex items-center gap-1">
+                            Get Google Maps Key <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                        </a>
+                    </div>
+                    <input type="password" x-model="byokMapsKey" placeholder="AIzaSy..." class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-indigo-500">
+                </div>
+
+                <!-- Gemini API Key -->
+                <div class="bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label class="block text-xs font-bold text-slate-200">Gemini API Key (AI Outreach)</label>
+                        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="text-[11px] text-cyan-300 hover:text-cyan-200 underline flex items-center gap-1">
+                            Get Gemini Key <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                        </a>
+                    </div>
+                    <input type="password" x-model="byokGeminiKey" placeholder="AIzaSy..." class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-indigo-500">
+                </div>
+
+                <!-- Google Service Account JSON -->
+                <div class="bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label class="block text-xs font-bold text-slate-200">Google Service Account JSON</label>
+                        <a href="https://console.cloud.google.com/iam-admin/serviceaccounts" target="_blank" rel="noopener noreferrer" class="text-[11px] text-cyan-300 hover:text-cyan-200 underline flex items-center gap-1">
+                            Open Service Accounts <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                        </a>
+                    </div>
+                    <textarea x-model="byokServiceJson" rows="4" placeholder='Paste complete JSON object containing client_email and private_key' class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white text-xs font-mono focus:outline-none focus:border-indigo-500"></textarea>
+                    <p class="text-[11px] text-slate-500 mt-1">Alternatively, share your target sheet as Editor with <code class="text-violet-300 select-all">support@sayadbayezid.com</code>.</p>
+                </div>
+            </div>
+            <div class="mt-6 flex items-center justify-end space-x-3">
+                <button @click="showByokModal = false" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-xl transition">Cancel</button>
+                <button @click="saveMapsByok" class="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-500/25 transition">Save Secure Keys</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auth Modal (Login / Signup) -->
+    <div x-show="showAuthModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4" style="display: none;">
+        <div @click.away="showAuthModal = false" class="bg-slate-900 border border-cyan-500/30 rounded-2xl max-w-md w-full p-6 shadow-2xl relative overflow-hidden">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center space-x-2 text-cyan-400 font-bold text-lg">
+                    <i class="fa-solid fa-user-lock"></i>
+                    <span x-text="authMode === 'login' ? 'Log In to NexusLeads' : 'Create Account'"></span>
+                </div>
+                <button @click="showAuthModal = false" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <form @submit.prevent="submitAuth" class="space-y-4 text-sm">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Email Address</label>
+                    <input type="email" x-model="authEmail" required placeholder="you@domain.com" class="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-cyan-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Password (min 8 chars)</label>
+                    <input type="password" x-model="authPassword" required placeholder="••••••••" class="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-cyan-500">
+                </div>
+                <div x-show="authError" x-text="authError" class="text-xs text-rose-400 bg-rose-500/10 p-2.5 rounded border border-rose-500/20"></div>
+                <div class="mt-6 flex items-center justify-between">
+                    <button type="button" @click="authMode = authMode === 'login' ? 'signup' : 'login'" class="text-xs text-cyan-400 hover:underline"><span x-text="authMode === 'login' ? 'Need an account? Sign up' : 'Have an account? Log in'"></span></button>
+                    <button type="submit" :disabled="authLoading" class="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-indigo-600 text-white text-xs font-bold rounded-lg shadow-lg hover:shadow-cyan-500/20 transition disabled:opacity-50"><span x-text="authLoading ? 'Please wait...' : (authMode === 'login' ? 'Log In' : 'Create Account')"></span></button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- One-time newsletter popup -->
+    <div x-show="showNewsletterPopup" class="fixed inset-0 z-[55] flex items-center justify-center bg-slate-950/85 backdrop-blur-sm p-4" style="display: none;">
+        <div @click.away="dismissNewsletterPopup" class="bg-slate-900 border border-emerald-400/30 rounded-3xl max-w-lg w-full p-7 shadow-2xl relative overflow-hidden"><div class="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-emerald-400/10 blur-3xl pointer-events-none"></div><div class="relative"><div class="flex items-start justify-between gap-4"><div><span class="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-400/15 text-emerald-300"><i class="fa-solid fa-envelope-open-text"></i></span><p class="text-xs uppercase tracking-[0.25em] text-emerald-300 font-semibold mt-5">NexusLeads notes</p><h2 class="text-2xl font-extrabold text-white mt-2">Better leads start with better questions.</h2></div><button @click="dismissNewsletterPopup" class="text-slate-500 hover:text-white" aria-label="Close newsletter popup"><i class="fa-solid fa-xmark text-lg"></i></button></div><p class="text-sm text-slate-400 leading-7 mt-4">Get occasional field notes about agency prospecting, verified public data, ethical outreach, and practical growth systems. No spam and no automatic outreach.</p><form @submit.prevent="submitNewsletter" class="mt-5 flex flex-col sm:flex-row gap-2"><input type="email" x-model="newsletterEmail" required placeholder="you@company.com" class="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-emerald-400"><button type="submit" :disabled="newsletterSubmitting" class="rounded-xl bg-emerald-400 px-4 py-3 text-sm font-bold text-slate-950 hover:bg-emerald-300 transition disabled:opacity-60"><span x-text="newsletterSubmitting ? 'Saving...' : 'Join free' "></span></button></form><p x-show="newsletterStatus" x-text="newsletterStatus" class="text-xs text-emerald-300 mt-3"></p><button @click="dismissNewsletterPopup" class="text-xs text-slate-500 hover:text-slate-300 mt-4">Maybe later</button></div></div>
+    </div>
+
+    <!-- One-time successful collection popup -->
+    <div x-show="showSuccessPopup" class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/85 backdrop-blur-sm p-4" style="display: none;">
+        <div @click.away="dismissSuccessPopup" class="bg-slate-900 border border-emerald-400/30 rounded-3xl max-w-lg w-full p-7 shadow-2xl relative overflow-hidden">
+            <div class="absolute -right-14 -top-14 h-44 w-44 rounded-full bg-emerald-400/10 blur-3xl pointer-events-none"></div>
+            <div class="relative"><div class="flex items-center justify-between"><div class="flex items-center gap-3"><span class="h-11 w-11 rounded-2xl bg-emerald-400/15 flex items-center justify-center text-emerald-300"><i class="fa-solid fa-check"></i></span><div><p class="text-xs uppercase tracking-wider text-emerald-300 font-semibold">Collection complete</p><h2 class="text-xl font-extrabold text-white">Help the next visitor trust the workflow.</h2></div></div><button @click="dismissSuccessPopup" class="text-slate-500 hover:text-white"><i class="fa-solid fa-xmark"></i></button></div>
+                <p class="text-sm text-slate-400 leading-7 mt-5">Would you like to join the NexusLeads updates list and leave a short review? Your review will appear in the public Client Voice section.</p>
+                <form @submit.prevent="submitNewsletter" class="mt-5 flex flex-col sm:flex-row gap-2"><input type="email" x-model="newsletterEmail" required placeholder="you@company.com" class="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-cyan-400"><button type="submit" :disabled="newsletterSubmitting" class="rounded-xl bg-cyan-500 px-4 py-3 text-sm font-bold text-slate-950 hover:bg-cyan-400 transition disabled:opacity-60"><span x-text="newsletterSubmitting ? 'Saving...' : 'Join updates'"></span></button></form>
+                <div class="flex items-center justify-between mt-4"><button @click="openReviewModal" class="text-xs font-semibold text-violet-300 hover:text-violet-200">Leave a review now <i class="fa-solid fa-arrow-right ml-1"></i></button><button @click="dismissSuccessPopup" class="text-xs text-slate-500 hover:text-slate-300">Maybe later</button></div>
+                <p x-show="newsletterStatus" x-text="newsletterStatus" class="text-xs text-emerald-300 mt-3"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Review submission modal -->
+    <div x-show="showReviewModal" class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/85 backdrop-blur-sm p-4" style="display: none;">
+        <div @click.away="showReviewModal = false" class="bg-slate-900 border border-violet-400/30 rounded-3xl max-w-lg w-full p-7 shadow-2xl">
+            <div class="flex items-center justify-between mb-5"><div><p class="text-xs uppercase tracking-wider text-violet-300 font-semibold">Client voice</p><h2 class="text-xl font-extrabold text-white mt-1">Share your experience</h2></div><button @click="showReviewModal = false" class="text-slate-500 hover:text-white"><i class="fa-solid fa-xmark"></i></button></div>
+            <form @submit.prevent="submitReview" class="space-y-4"><div class="grid sm:grid-cols-2 gap-3"><div><label class="block text-xs text-slate-400 mb-1">Display name</label><input type="text" x-model="reviewName" required maxlength="80" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-white focus:outline-none focus:border-violet-400"></div><div><label class="block text-xs text-slate-400 mb-1">Role / business (optional)</label><input type="text" x-model="reviewRole" maxlength="100" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-white focus:outline-none focus:border-violet-400"></div></div><div><label class="block text-xs text-slate-400 mb-1">Rating</label><select x-model="reviewRating" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-white focus:outline-none focus:border-violet-400"><option value="5">5 — Excellent</option><option value="4">4 — Very good</option><option value="3">3 — Good</option><option value="2">2 — Needs improvement</option><option value="1">1 — Not ready yet</option></select></div><div><label class="block text-xs text-slate-400 mb-1">Your review</label><textarea x-model="reviewMessage" required minlength="12" maxlength="600" rows="4" placeholder="What worked well for your lead research?" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-violet-400"></textarea></div><p x-show="reviewError" x-text="reviewError" class="text-xs text-rose-300"></p><div class="flex items-center justify-end gap-3"><button type="button" @click="showReviewModal = false" class="rounded-xl bg-slate-800 px-4 py-3 text-xs font-semibold text-slate-300">Cancel</button><button type="submit" :disabled="reviewSubmitting" class="rounded-xl bg-violet-500 px-5 py-3 text-xs font-bold text-white hover:bg-violet-400 transition disabled:opacity-60"><span x-text="reviewSubmitting ? 'Publishing...' : 'Publish review'"></span></button></div></form>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>

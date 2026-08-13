@@ -1,0 +1,488 @@
+function leadApp() {
+            return {
+                prompt: '',
+                outreachStyle: '',
+                draftType: 'general',
+                generateOutreach: true,
+                keyword: '',
+                location: '',
+                sheetId: '',
+                autoPushEnabled: true,
+                maxResults: 20,
+                verifiedOnly: true,
+                loading: false,
+                manualPushLoading: false,
+                showPricingModal: false,
+                showByokModal: false,
+                showAuthModal: false,
+                showSuccessPopup: false,
+                showNewsletterPopup: false,
+                showReviewModal: false,
+                newsletterEmail: '',
+                newsletterSubmitting: false,
+                newsletterStatus: '',
+                reviews: [],
+                reviewName: '',
+                reviewRole: '',
+                reviewRating: 5,
+                reviewMessage: '',
+                reviewSubmitting: false,
+                reviewError: '',
+                authMode: 'login',
+                authEmail: '',
+                authPassword: '',
+                authError: '',
+                authLoading: false,
+                currentUser: null,
+                authToken: localStorage.getItem('nexusleads-token') || '',
+                sheetChecking: false,
+                serviceAccountEmail: 'support@sayadbayezid.com',
+                byokMapsKey: '',
+                byokServiceJson: '',
+                credits: { used: 0, limit: 100, remaining: 100 },
+                clientId: '',
+                leads: [],
+                message: '',
+                progress: 0,
+                stage: 0,
+                activity: [{ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: 'Dashboard ready for a new research run.' }],
+                metrics: { found: 0, verified: 0, emails: 0, sheet: 'Waiting' },
+                apiBase: (document.querySelector('meta[name="nexus-api-base"]')?.content || window.NEXUS_API_BASE || 'http://localhost:8787').replace(/\/$/, ''),
+                track(eventName, parameters = {}) {
+                    if (typeof window.nexusTrack === 'function') window.nexusTrack(eventName, parameters);
+                },
+                async postJson(path, payload) {
+                    const headers = { 'Content-Type': 'application/json', 'X-Nexus-Client-ID': this.clientId };
+                    if (this.authToken) headers['Authorization'] = 'Bearer ' + this.authToken;
+                    const response = await fetch(this.apiBase + path, {
+                        method: 'POST',
+                        headers,
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await response.json().catch(() => ({}));
+                    if (response.status === 401 || data.code === 'AUTH_REQUIRED') {
+                        this.showAuthModal = true;
+                        this.authMode = 'login';
+                        throw new Error('Please log in to your NexusLeads account.');
+                    }
+                    if (!response.ok) {
+                        if (data.code === 'DAILY_CREDIT_LIMIT' || response.status === 402) {
+                            this.showPricingModal = true;
+                            throw new Error(data.error || 'Daily free limit reached.');
+                        }
+                        throw new Error(data.error || 'The backend request failed.');
+                    }
+                    if (!data.success) throw new Error(data.error || 'The backend request failed.');
+                    return data;
+                },
+                async searchLeads() {
+                    if (!this.prompt.trim() && (!this.keyword.trim() || !this.location.trim())) {
+                        this.message = 'Enter an AI research prompt, or provide both a keyword and location.';
+                        return;
+                    }
+                    if (this.autoPushEnabled && !this.sheetId.trim()) {
+                        this.message = 'Auto-Push is enabled. Paste a Google Sheet URL, or turn Auto-Push off and use Sync Selected later.';
+                        return;
+                    }
+                    this.loading = true;
+                    this.message = '';
+                    this.progress = 5;
+                    this.stage = 1;
+                    this.metrics = { found: 0, verified: 0, emails: 0, sheet: this.autoPushEnabled ? 'Preparing' : 'Manual mode' };
+                    const runLabel = this.prompt.trim() || `${this.keyword} near ${this.location}`;
+                    this.track('lead_search_started', { mode: this.prompt.trim() ? 'ai_prompt' : 'keyword_location', max_results: Number(this.maxResults), verified_only: this.verifiedOnly, auto_push: this.autoPushEnabled });
+                    const payload = {
+                        prompt: this.prompt,
+                        outreach_style: this.outreachStyle,
+                        draft_type: this.draftType,
+                        generate_outreach: this.generateOutreach,
+                        keyword: this.keyword,
+                        location: this.location,
+                        verified_only: this.verifiedOnly,
+                        max_results: Number(this.maxResults),
+                        enrich_with_ai: true
+                    };
+                    this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: `Starting ${this.maxResults}-lead research: ${runLabel}.` });
+                    try {
+                        const discovered = await this.postJson('/api/discover', payload);
+                        const candidates = discovered.candidates || [];
+                        this.progress = 25;
+                        this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: `Discovered ${candidates.length} candidates across Google Places query batches.` });
+                        this.stage = 2;
+                        let enriched = [];
+                        for (let index = 0; index < candidates.length; index += 5) {
+                            const batch = candidates.slice(index, index + 5);
+                            const result = await this.postJson('/api/enrich', { ...payload, leads: batch, batch_index: Math.floor(index / 5) + 1 });
+                            enriched = enriched.concat(result.leads || []);
+                            this.progress = 25 + Math.round(((index + batch.length) / Math.max(candidates.length, 1)) * 55);
+                            this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: `Verified and enriched ${Math.min(index + batch.length, candidates.length)} of ${candidates.length} candidates.` });
+                        }
+                        const verified = enriched.filter(item => item.phone && item.email);
+                        const finalLeads = (this.verifiedOnly ? verified : enriched).slice(0, Number(this.maxResults));
+                        this.leads = finalLeads.map(item => ({ ...item, selected: false }));
+                        this.metrics.found = this.leads.length;
+                        this.metrics.verified = verified.length;
+                        this.metrics.emails = enriched.filter(item => item.email).length;
+                        this.stage = 3;
+                        this.progress = 90;
+                        let sheetMessage;
+                        if (this.autoPushEnabled && this.leads.length > 0) {
+                            const sheetData = await this.postJson('/api/export', {
+                                sheet_id: this.sheetId,
+                                leads: this.leads,
+                                leads_sheet_tab: 'Leads',
+                                outreach_sheet_tab: 'Outreach'
+                            });
+                            this.metrics.sheet = 'Synced';
+                            sheetMessage = `Auto-Push complete: ${this.leads.length} lead(s) synced to Leads and Outreach.`;
+                            this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: sheetMessage });
+                        } else {
+                            this.metrics.sheet = 'Manual mode';
+                            sheetMessage = `Found ${this.leads.length} selected-ready lead(s) from ${candidates.length} candidates. Select leads below and use Sync Selected.`;
+                        }
+                        const verificationMessage = this.verifiedOnly && this.leads.length < Number(this.maxResults) ? ` Verified results available: ${verified.length}; uncheck “Verified leads only” if you want all public listings.` : '';
+                        this.message = sheetMessage + verificationMessage;
+                        this.track('lead_search_completed', { leads_found: this.leads.length, verified_leads: verified.length, emails_found: this.metrics.emails, sheet_status: this.metrics.sheet, outreach_drafts: this.generateOutreach });
+                        if (this.leads.length > 0) this.maybeShowSuccessPopup();
+                    } catch (err) {
+                        console.error(err);
+                        this.progress = 0;
+                        this.stage = 0;
+                        this.metrics.sheet = 'Error';
+                        this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: err.message || 'Connection error with the Cloudflare backend.' });
+                        this.message = err.message || 'Connection error with the Cloudflare backend.';
+                        this.track('lead_search_failed', { error_type: err?.message ? 'backend_or_validation' : 'unknown' });
+                    } finally {
+                        this.loading = false;
+                        if (this.progress >= 90) this.progress = 100;
+                    }
+                },
+                openDashboard(event) {
+                    if (event) event.preventDefault();
+                    const authenticated = Boolean(this.authToken && this.currentUser);
+                    this.track('dashboard_entry_click', { authenticated });
+                    const destination = event?.currentTarget?.getAttribute('href') || 'dashboard.html';
+                    window.location.href = destination;
+                },
+                async initApp() {
+                    this.track('app_open', { page: 'nexusleads_home' });
+                    this.loadSheetConfig();
+                    let cid = localStorage.getItem('nexusleads-client-id');
+                    if (!cid) {
+                        cid = 'client-' + Math.random().toString(36).substring(2) + Date.now().toString(36);
+                        localStorage.setItem('nexusleads-client-id', cid);
+                    }
+                    this.clientId = cid;
+                    if (this.authToken) {
+                        try {
+                            const meRes = await fetch(this.apiBase + '/api/auth/me', {
+                                headers: { 'Authorization': 'Bearer ' + this.authToken }
+                            });
+                            const meData = await meRes.json();
+                            if (meData.success && meData.user) {
+                                this.currentUser = meData.user;
+                                await this.loadAccountStatus();
+                            } else {
+                                this.authToken = '';
+                                localStorage.removeItem('nexusleads-token');
+                            }
+                        } catch {
+                            this.authToken = '';
+                        }
+                    }
+                    try {
+                        const headers = { 'X-Nexus-Client-ID': this.clientId };
+                        if (this.authToken) headers['Authorization'] = 'Bearer ' + this.authToken;
+                        const res = await fetch(this.apiBase + '/api/usage', { headers });
+                        const data = await res.json();
+                        if (data.success && data.credits) {
+                            this.credits = data.credits;
+                            if (data.user) this.currentUser = data.user;
+                        }
+                    } catch (e) {
+                        console.warn('Could not load daily credits', e);
+                    }
+                    await this.loadReviews();
+                    this.maybeShowNewsletterPopup();
+                },
+                async loadReviews() {
+                    try {
+                        const res = await fetch(this.apiBase + '/api/reviews');
+                        const data = await res.json();
+                        if (res.ok && data.success) this.reviews = data.reviews || [];
+                    } catch (error) {
+                        console.warn('Could not load public reviews.');
+                    }
+                },
+                maybeShowSuccessPopup() {
+                    if (localStorage.getItem('nexusleads-success-popup-shown') === '1') return;
+                    localStorage.setItem('nexusleads-success-popup-shown', '1');
+                    this.newsletterEmail = this.currentUser?.email || '';
+                    this.showSuccessPopup = true;
+                },
+                dismissSuccessPopup() {
+                    this.showSuccessPopup = false;
+                },
+                maybeShowNewsletterPopup() {
+                    if (localStorage.getItem('nexusleads-newsletter-popup-shown') === '1') return;
+                    window.setTimeout(() => {
+                        if (!this.showSuccessPopup && !this.showAuthModal) this.showNewsletterPopup = true;
+                    }, 6500);
+                },
+                dismissNewsletterPopup() {
+                    localStorage.setItem('nexusleads-newsletter-popup-shown', '1');
+                    this.showNewsletterPopup = false;
+                },
+                openReviewModal() {
+                    if (!this.authToken || !this.currentUser) {
+                        this.showSuccessPopup = false;
+                        this.authMode = 'login';
+                        this.showAuthModal = true;
+                        this.message = 'Log in to publish a public client review.';
+                        return;
+                    }
+                    this.showSuccessPopup = false;
+                    this.reviewName = this.reviewName || this.currentUser.email.split('@')[0];
+                    this.showReviewModal = true;
+                },
+                async submitNewsletter() {
+                    this.newsletterSubmitting = true;
+                    this.newsletterStatus = '';
+                    try {
+                        const headers = { 'Content-Type': 'application/json' };
+                        if (this.authToken) headers['Authorization'] = 'Bearer ' + this.authToken;
+                        const res = await fetch(this.apiBase + '/api/newsletter', { method: 'POST', headers, body: JSON.stringify({ email: this.newsletterEmail, source: this.showNewsletterPopup ? 'newsletter_popup' : 'successful_collection_popup' }) });
+                        const data = await res.json();
+                        if (!res.ok || !data.success) throw new Error(data.error || 'Newsletter signup failed.');
+                        this.newsletterStatus = data.message || 'You are subscribed.';
+                        this.track('newsletter_subscribe', { source: this.showNewsletterPopup ? 'newsletter_popup' : 'successful_collection_popup' });
+                        this.newsletterEmail = '';
+                        if (this.showNewsletterPopup) this.dismissNewsletterPopup();
+                    } catch (error) {
+                        this.newsletterStatus = error.message;
+                    } finally {
+                        this.newsletterSubmitting = false;
+                    }
+                },
+                async submitReview() {
+                    if (!this.authToken) { this.openReviewModal(); return; }
+                    this.reviewSubmitting = true;
+                    this.reviewError = '';
+                    try {
+                        const res = await fetch(this.apiBase + '/api/reviews', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.authToken }, body: JSON.stringify({ display_name: this.reviewName, role: this.reviewRole, rating: Number(this.reviewRating), message: this.reviewMessage }) });
+                        const data = await res.json();
+                        if (!res.ok || !data.success) throw new Error(data.error || 'Review submission failed.');
+                        if (data.review) this.reviews = [data.review, ...this.reviews];
+                        this.showReviewModal = false;
+                        this.reviewMessage = '';
+                        this.message = 'Thank you. Your review is now visible in Client Voice.';
+                        this.track('review_submitted', { rating: Number(this.reviewRating) });
+                    } catch (error) {
+                        this.reviewError = error.message;
+                    } finally {
+                        this.reviewSubmitting = false;
+                    }
+                },
+                formatReviewDate(value) {
+                    if (!value) return '';
+                    try { return new Date(value).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }); } catch { return ''; }
+                },
+                async loadAccountStatus() {
+                    if (!this.authToken) return;
+                    try {
+                        const res = await fetch(this.apiBase + '/api/account/credentials', { headers: { 'Authorization': 'Bearer ' + this.authToken } });
+                        const data = await res.json();
+                        if (res.ok && data.success) this.serviceAccountEmail = data.service_account_email || this.serviceAccountEmail;
+                    } catch (error) {
+                        console.warn('Could not load account configuration.');
+                    }
+                },
+                async submitAuth() {
+                    this.authLoading = true;
+                    this.authError = '';
+                    const endpoint = this.authMode === 'login' ? '/api/auth/login' : '/api/auth/signup';
+                    try {
+                        const res = await fetch(this.apiBase + endpoint, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email: this.authEmail, password: this.authPassword })
+                        });
+                        const data = await res.json();
+                        if (!res.ok || !data.success) throw new Error(data.error || 'Authentication failed.');
+                        this.authToken = data.token;
+                        localStorage.setItem('nexusleads-token', data.token);
+                        this.currentUser = data.user;
+                        await this.loadAccountStatus();
+                        this.showAuthModal = false;
+                        this.authPassword = '';
+                        this.message = 'Successfully logged in as ' + data.user.email;
+                        this.track(this.authMode === 'login' ? 'login' : 'sign_up', { plan: data.user.plan || 'free', auth_method: 'email_password' });
+                        await this.initApp();
+                    } catch (err) {
+                        this.authError = err.message;
+                        this.track('auth_failed', { mode: this.authMode, reason: 'request_rejected' });
+                    } finally {
+                        this.authLoading = false;
+                    }
+                },
+                async logout() {
+                    try {
+                        if (this.authToken) {
+                            await fetch(this.apiBase + '/api/auth/logout', {
+                                method: 'POST',
+                                headers: { 'Authorization': 'Bearer ' + this.authToken }
+                            });
+                        }
+                    } catch {}
+                    this.authToken = '';
+                    this.currentUser = null;
+                    localStorage.removeItem('nexusleads-token');
+                    this.track('logout', {});
+                    this.message = 'Logged out successfully.';
+                },
+                async checkSheetAccess() {
+                    if (!this.sheetId.trim()) {
+                        alert('Please enter a Google Sheet URL or ID first.');
+                        return;
+                    }
+                    this.sheetChecking = true;
+                    try {
+                        const headers = { 'Content-Type': 'application/json', 'X-Nexus-Client-ID': this.clientId };
+                        if (this.authToken) headers['Authorization'] = 'Bearer ' + this.authToken;
+                        const res = await fetch(this.apiBase + '/api/account/sheet-check', {
+                            method: 'POST',
+                            headers,
+                            body: JSON.stringify({ sheet_id: this.sheetId })
+                        });
+                        const data = await res.json();
+                        if (res.ok && data.verified) {
+                            this.serviceAccountEmail = data.service_account_email || this.serviceAccountEmail;
+                            alert('Success! Google Sheet is accessible by ' + this.serviceAccountEmail + '.');
+                            this.track('sheet_access_verified', { verified: true });
+                        } else {
+                            this.serviceAccountEmail = data.service_account_email || this.serviceAccountEmail;
+                            alert(data.error || 'Sheet not accessible. Please add ' + this.serviceAccountEmail + ' as an Editor.');
+                            this.track('sheet_access_verified', { verified: false });
+                        }
+                    } catch (err) {
+                        alert('Could not verify sheet access: ' + err.message);
+                    } finally {
+                        this.sheetChecking = false;
+                    }
+                },
+                async saveMapsByok() {
+                    if (!this.authToken) {
+                        alert('Please log in before saving BYOK keys.');
+                        this.showByokModal = false;
+                        this.showAuthModal = true;
+                        return;
+                    }
+                    try {
+                        const res = await fetch(this.apiBase + '/api/account/credentials', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.authToken },
+                            body: JSON.stringify({ maps_api_key: this.byokMapsKey, sheets_service_account_json: this.byokServiceJson })
+                        });
+                        const data = await res.json();
+                        if (res.ok && data.success) {
+                            this.serviceAccountEmail = data.service_account_email || this.serviceAccountEmail;
+                            alert('Your credentials were saved and encrypted securely. Share your Sheet with ' + this.serviceAccountEmail + ' as Editor.');
+                            this.showByokModal = false;
+                            this.track('byok_credentials_saved', { maps_key_provided: Boolean(this.byokMapsKey), sheets_credentials_provided: Boolean(this.byokServiceJson) });
+                            this.byokMapsKey = '';
+                            this.byokServiceJson = '';
+                        } else {
+                            alert(data.error || 'Failed to save credentials.');
+                        }
+                    } catch (err) {
+                        alert('Failed to save credentials: ' + err.message);
+                    }
+                },
+                loadSheetConfig() {
+                    try {
+                        const saved = JSON.parse(localStorage.getItem('nexusleads-sheet-config') || '{}');
+                        if (typeof saved.sheetId === 'string') this.sheetId = saved.sheetId;
+                        if ([20, 25, 30, 40, 50].includes(Number(saved.maxResults))) this.maxResults = Number(saved.maxResults);
+                        if (typeof saved.autoPush === 'boolean') this.autoPushEnabled = saved.autoPush;
+                        else if (typeof saved.enabled === 'boolean') this.autoPushEnabled = saved.enabled;
+                    } catch (error) {
+                        console.warn('Saved Google Sheets configuration could not be loaded.');
+                    }
+                },
+                saveSheetConfig() {
+                    try {
+                        localStorage.setItem('nexusleads-sheet-config', JSON.stringify({ sheetId: this.sheetId, autoPush: this.autoPushEnabled, maxResults: Number(this.maxResults) }));
+                    } catch (error) {
+                        console.warn('Google Sheets configuration could not be saved locally.');
+                    }
+                },
+                allSelected() {
+                    return this.leads.length > 0 && this.leads.every(lead => lead.selected);
+                },
+                selectedCount() {
+                    return this.leads.filter(lead => lead.selected).length;
+                },
+                toggleAll(checked) {
+                    this.leads.forEach(lead => { lead.selected = checked; });
+                },
+                async syncSelected() {
+                    const selected = this.leads.filter(lead => lead.selected);
+                    if (!selected.length) {
+                        this.message = 'Select at least one lead before syncing.';
+                        return;
+                    }
+                    if (!this.sheetId.trim()) {
+                        this.message = 'Paste your Google Sheet URL before syncing selected leads.';
+                        return;
+                    }
+                    this.manualPushLoading = true;
+                    this.message = `Syncing ${selected.length} selected lead(s) to the Leads and Outreach tabs...`;
+                    try {
+                        const response = await fetch(this.apiBase + '/api/export', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                sheet_id: this.sheetId,
+                                leads: selected,
+                                leads_sheet_tab: 'Leads',
+                                outreach_sheet_tab: 'Outreach'
+                            })
+                        });
+                        const data = await response.json();
+                        if (!response.ok || !data.success) throw new Error(data.error || data.sheets?.reason || 'Selected sync failed.');
+                        this.metrics.sheet = 'Synced';
+                        this.message = `Selected leads synced: ${data.count} lead(s) to Leads and Outreach.`;
+                        this.track('selected_leads_synced', { lead_count: Number(data.count) || selected.length });
+                        this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: this.message });
+                    } catch (error) {
+                        this.message = error.message || 'Selected sync failed.';
+                        this.track('selected_leads_sync_failed', { lead_count: selected.length });
+                        this.metrics.sheet = 'Failed';
+                    } finally {
+                        this.manualPushLoading = false;
+                    }
+                },
+                async copyText(value) {
+                    if (!value) return;
+                    try {
+                        await navigator.clipboard.writeText(value);
+                        this.message = 'Draft copied to clipboard. Review it before sending.';
+                    } catch {
+                        this.message = 'Copy was blocked by the browser. Select the draft from the Google Sheet instead.';
+                    }
+                },
+                exportCSV() {
+                    const cell = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+                    let csv = ['Name','Category','Phone','Email','Facebook','Instagram','Twitter','LinkedIn','Draft Type','Address','Website','Rating','Verification','Email Subject Draft','Email Message Draft','WhatsApp Message Draft','Personalization Note'].map(cell).join(',') + '\\n';
+                    this.leads.forEach(l => {
+                        csv += [l.name, l.category, l.phone, l.email, l.facebook, l.instagram, l.twitter, l.linkedin, l.draft_type, l.address, l.website, l.rating, l.verification, l.email_subject, l.email_draft, l.whatsapp_draft, l.personalization_note].map(cell).join(',') + '\\n';
+                    });
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.setAttribute('href', url);
+                    a.setAttribute('download', 'leads_export.csv');
+                    a.click();
+                }
+            }
+        }
