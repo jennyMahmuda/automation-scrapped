@@ -38,6 +38,7 @@ function leadApp() {
                 sheetChecking: false,
                 serviceAccountEmail: 'support@sayadbayezid.com',
                 byokMapsKey: '',
+                byokGeminiKey: '',
                 byokServiceJson: '',
                 credits: { used: 0, limit: 100, remaining: 100 },
                 clientId: '',
@@ -381,15 +382,24 @@ function leadApp() {
                         const res = await fetch(this.apiBase + '/api/account/credentials', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.authToken },
-                            body: JSON.stringify({ maps_api_key: this.byokMapsKey, sheets_service_account_json: this.byokServiceJson })
+                            body: JSON.stringify({ 
+                                maps_api_key: this.byokMapsKey, 
+                                gemini_api_key: this.byokGeminiKey,
+                                sheets_service_account_json: this.byokServiceJson 
+                            })
                         });
                         const data = await res.json();
                         if (res.ok && data.success) {
                             this.serviceAccountEmail = data.service_account_email || this.serviceAccountEmail;
                             alert('Your credentials were saved and encrypted securely. Share your Sheet with ' + this.serviceAccountEmail + ' as Editor.');
                             this.showByokModal = false;
-                            this.track('byok_credentials_saved', { maps_key_provided: Boolean(this.byokMapsKey), sheets_credentials_provided: Boolean(this.byokServiceJson) });
+                            this.track('byok_credentials_saved', { 
+                                maps_key_provided: Boolean(this.byokMapsKey), 
+                                gemini_key_provided: Boolean(this.byokGeminiKey),
+                                sheets_credentials_provided: Boolean(this.byokServiceJson) 
+                            });
                             this.byokMapsKey = '';
+                            this.byokGeminiKey = '';
                             this.byokServiceJson = '';
                         } else {
                             alert(data.error || 'Failed to save credentials.');

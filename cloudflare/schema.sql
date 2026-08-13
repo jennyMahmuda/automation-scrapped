@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS api_credentials (
   maps_key_last4 TEXT,
   sheets_json_ciphertext TEXT,
   sheets_account_email TEXT,
+  gemini_key_ciphertext TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE

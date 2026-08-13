@@ -255,13 +255,14 @@ async function createSession(userId, env) {
 }
 
 async function userCredentials(userId, env) {
-  const row = await env.NEXUS_DB.prepare("SELECT maps_key_ciphertext, maps_key_last4, sheets_json_ciphertext, sheets_account_email FROM api_credentials WHERE user_id = ?").bind(userId).first();
-  if (!row) return { mapsApiKey: null, mapsLast4: null, sheetsJson: null, sheetsAccountEmail: null };
+  const row = await env.NEXUS_DB.prepare("SELECT maps_key_ciphertext, maps_key_last4, sheets_json_ciphertext, sheets_account_email, gemini_key_ciphertext FROM api_credentials WHERE user_id = ?").bind(userId).first();
+  if (!row) return { mapsApiKey: null, mapsLast4: null, sheetsJson: null, sheetsAccountEmail: null, geminiApiKey: null };
   return {
     mapsApiKey: await decryptSecret(row.maps_key_ciphertext, env),
     mapsLast4: row.maps_key_last4 || null,
     sheetsJson: await decryptSecret(row.sheets_json_ciphertext, env),
     sheetsAccountEmail: row.sheets_account_email || null,
+    geminiApiKey: await decryptSecret(row.gemini_key_ciphertext, env),
   };
 }
 
@@ -277,6 +278,10 @@ async function effectiveUserEnv(user, env) {
   if (credentials.sheetsJson) {
     effective.GOOGLE_SERVICE_ACCOUNT_JSON = credentials.sheetsJson;
     effective.GOOGLESERVICES_JSON = "";
+  }
+  if (credentials.geminiApiKey) {
+    effective.GEMINI_API_KEY = credentials.geminiApiKey;
+    effective.GEMINI_OUTREACH_API_KEY = credentials.geminiApiKey;
   }
   return effective;
 }
@@ -437,7 +442,17 @@ async function handleCredentialStatus(request, env) {
   const user = await sessionUser(request, env);
   if (!user) return json({ success: false, error: "Authentication required" }, 401);
   const credentials = await userCredentials(user.id, env);
-  return json({ success: true, service_account_email: credentials.sheetsAccountEmail || getPlatformServiceAccountEmail(env), credentials: { maps_configured: Boolean(credentials.mapsApiKey), maps_last4: credentials.mapsLast4, sheets_configured: Boolean(credentials.sheetsJson), sheets_account_email: credentials.sheetsAccountEmail || null } });
+  return json({
+    success: true,
+    service_account_email: credentials.sheetsAccountEmail || getPlatformServiceAccountEmail(env),
+    credentials: {
+      maps_configured: Boolean(credentials.mapsApiKey),
+      maps_last4: credentials.mapsLast4,
+      sheets_configured: Boolean(credentials.sheetsJson),
+      sheets_account_email: credentials.sheetsAccountEmail || null,
+      gemini_configured: Boolean(credentials.geminiApiKey)
+    }
+  });
 }
 
 async function handleCredentialSave(request, env) {
@@ -445,15 +460,21 @@ async function handleCredentialSave(request, env) {
   if (!user) return json({ success: false, error: "Authentication required" }, 401);
   if (!env.NEXUS_DB || !env.NEXUS_CREDENTIALS_KEY) return json({ success: false, error: "Secure credential storage is not configured" }, 503);
   const body = await request.json().catch(() => null);
-  const existing = await env.NEXUS_DB.prepare("SELECT maps_key_ciphertext, maps_key_last4, sheets_json_ciphertext, sheets_account_email, created_at FROM api_credentials WHERE user_id = ?").bind(user.id).first();
+  const existing = await env.NEXUS_DB.prepare("SELECT maps_key_ciphertext, maps_key_last4, sheets_json_ciphertext, sheets_account_email, gemini_key_ciphertext, created_at FROM api_credentials WHERE user_id = ?").bind(user.id).first();
   let mapsCipher = existing?.maps_key_ciphertext || null;
   let mapsLast4 = existing?.maps_key_last4 || null;
   let sheetsCipher = existing?.sheets_json_ciphertext || null;
   let sheetsEmail = existing?.sheets_account_email || null;
+  let geminiCipher = existing?.gemini_key_ciphertext || null;
+
   if (body && Object.prototype.hasOwnProperty.call(body, "maps_api_key")) {
     const mapsKey = String(body.maps_api_key || "").trim();
     mapsCipher = mapsKey ? await encryptSecret(mapsKey, env) : null;
     mapsLast4 = mapsKey ? mapsKey.slice(-4) : null;
+  }
+  if (body && Object.prototype.hasOwnProperty.call(body, "gemini_api_key")) {
+    const geminiKey = String(body.gemini_api_key || "").trim();
+    geminiCipher = geminiKey ? await encryptSecret(geminiKey, env) : null;
   }
   const serviceJsonField = body && Object.prototype.hasOwnProperty.call(body, "sheets_service_account_json")
     ? body.sheets_service_account_json
@@ -474,8 +495,18 @@ async function handleCredentialSave(request, env) {
     }
   }
   const now = new Date().toISOString();
-  await env.NEXUS_DB.prepare("INSERT INTO api_credentials (user_id, maps_key_ciphertext, maps_key_last4, sheets_json_ciphertext, sheets_account_email, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET maps_key_ciphertext = excluded.maps_key_ciphertext, maps_key_last4 = excluded.maps_key_last4, sheets_json_ciphertext = excluded.sheets_json_ciphertext, sheets_account_email = excluded.sheets_account_email, updated_at = excluded.updated_at").bind(user.id, mapsCipher, mapsLast4, sheetsCipher, sheetsEmail, existing?.created_at || now, now).run();
-  return json({ success: true, service_account_email: sheetsEmail || getPlatformServiceAccountEmail(env), credentials: { maps_configured: Boolean(mapsCipher), maps_last4: mapsLast4, sheets_configured: Boolean(sheetsCipher), sheets_account_email: sheetsEmail } });
+  await env.NEXUS_DB.prepare("INSERT INTO api_credentials (user_id, maps_key_ciphertext, maps_key_last4, sheets_json_ciphertext, sheets_account_email, gemini_key_ciphertext, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET maps_key_ciphertext = excluded.maps_key_ciphertext, maps_key_last4 = excluded.maps_key_last4, sheets_json_ciphertext = excluded.sheets_json_ciphertext, sheets_account_email = excluded.sheets_account_email, gemini_key_ciphertext = excluded.gemini_key_ciphertext, updated_at = excluded.updated_at").bind(user.id, mapsCipher, mapsLast4, sheetsCipher, sheetsEmail, geminiCipher, existing?.created_at || now, now).run();
+  return json({
+    success: true,
+    service_account_email: sheetsEmail || getPlatformServiceAccountEmail(env),
+    credentials: {
+      maps_configured: Boolean(mapsCipher),
+      maps_last4: mapsLast4,
+      sheets_configured: Boolean(sheetsCipher),
+      sheets_account_email: sheetsEmail,
+      gemini_configured: Boolean(geminiCipher)
+    }
+  });
 }
 
 function json(data, status = 200, extraHeaders = {}) {

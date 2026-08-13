@@ -39,6 +39,7 @@
                 <span x-show="currentUser" x-cloak class="hidden sm:inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-300"><i class="fa-solid fa-shield-check"></i><span x-text="currentUser?.email"></span></span>
                 <span x-show="!currentUser" x-cloak class="hidden sm:inline-flex items-center gap-2 rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs text-amber-300"><i class="fa-solid fa-lock"></i> Login required</span>
                 <a href="./" class="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-200 hover:border-cyan-400/40 transition">Home</a>
+                <button x-show="currentUser" x-cloak @click="showByokModal = true" class="rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-2 text-xs font-semibold text-indigo-300 hover:bg-indigo-500/20 transition"><i class="fa-solid fa-key mr-1.5"></i> Maps BYOK</button>
                 <button x-show="currentUser" x-cloak @click="logout" class="rounded-xl bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition">Log out</button>
             </div>
         </div>
@@ -52,7 +53,11 @@
                     <h1 class="text-3xl sm:text-4xl font-extrabold text-white mt-2">Operations Center</h1>
                     <p class="text-sm text-slate-400 leading-7 mt-3 max-w-2xl">Run verified public-business research, review results, create outreach drafts, and sync only the leads you choose to Google Sheets.</p>
                 </div>
-                <div class="flex flex-wrap gap-2 text-xs"><span class="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-emerald-300">Private account data</span><span class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-cyan-300">100 free leads daily</span></div>
+                <div class="flex flex-wrap items-center gap-2 text-xs">
+                    <span class="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-emerald-300">Private account data</span>
+                    <span class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-cyan-300">100 free leads daily</span>
+                    <button x-show="currentUser" x-cloak @click="showByokModal = true" class="rounded-full border border-indigo-400/30 bg-indigo-500/20 px-3 py-2 text-indigo-200 hover:bg-indigo-500/30 transition flex items-center gap-2 font-bold"><i class="fa-solid fa-gear"></i> API Configuration</button>
+                </div>
             </div>
         </div>
 
