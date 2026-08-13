@@ -7,8 +7,10 @@ function leadApp() {
                 keyword: '',
                 location: '',
                 sheetId: '',
-                autoPushEnabled: true,
+                autoPushEnabled: false,
                 maxResults: 20,
+                pushBatchSize: 50,
+                workspaceSavedAt: '',
                 verifiedOnly: true,
                 loading: false,
                 manualPushLoading: false,
@@ -120,20 +122,23 @@ function leadApp() {
                         }
                         const verified = enriched.filter(item => item.phone && item.email);
                         const finalLeads = (this.verifiedOnly ? verified : enriched).slice(0, Number(this.maxResults));
-                        this.leads = finalLeads.map(item => ({ ...item, selected: false }));
+                        this.leads = finalLeads.map(item => ({ ...item, selected: false, synced: false }));
+                        this.persistWorkspace();
                         this.metrics.found = this.leads.length;
                         this.metrics.verified = verified.length;
                         this.metrics.emails = enriched.filter(item => item.email).length;
                         this.stage = 3;
                         this.progress = 90;
                         let sheetMessage;
-                        if (this.autoPushEnabled && this.leads.length > 0) {
+                            if (this.autoPushEnabled && this.leads.length > 0) {
                             const sheetData = await this.postJson('/api/export', {
                                 sheet_id: this.sheetId,
                                 leads: this.leads,
                                 leads_sheet_tab: 'Leads',
                                 outreach_sheet_tab: 'Outreach'
                             });
+                            this.leads.forEach(lead => { lead.synced = true; lead.synced_at = new Date().toISOString(); });
+                            this.persistWorkspace();
                             this.metrics.sheet = 'Synced';
                             sheetMessage = `Auto-Push complete: ${this.leads.length} lead(s) synced to Leads and Outreach.`;
                             this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: sheetMessage });
@@ -183,6 +188,7 @@ function leadApp() {
                             if (meData.success && meData.user) {
                                 this.currentUser = meData.user;
                                 await this.loadAccountStatus();
+                                this.loadWorkspace();
                             } else {
                                 this.authToken = '';
                                 localStorage.removeItem('nexusleads-token');
@@ -314,6 +320,7 @@ function leadApp() {
                         localStorage.setItem('nexusleads-token', data.token);
                         this.currentUser = data.user;
                         await this.loadAccountStatus();
+                        this.loadWorkspace();
                         this.showAuthModal = false;
                         this.authPassword = '';
                         this.message = 'Successfully logged in as ' + data.user.email;
@@ -408,11 +415,95 @@ function leadApp() {
                         alert('Failed to save credentials: ' + err.message);
                     }
                 },
+                toggleAutoPush(enabled) {
+                    if (enabled && !this.sheetId.trim()) {
+                        this.autoPushEnabled = false;
+                        this.message = 'Auto-Push stayed disconnected because no Google Sheet is configured.';
+                        this.track('sheet_auto_push_toggled', { enabled: false, reason: 'missing_sheet' });
+                        return;
+                    }
+                    this.autoPushEnabled = Boolean(enabled);
+                    this.saveSheetConfig();
+                    this.metrics.sheet = this.autoPushEnabled ? 'Connected' : 'Disconnected';
+                    this.message = this.autoPushEnabled ? 'Auto-Push connected. New successful searches will sync to your configured Sheet.' : 'Auto-Push disconnected. Nothing will be sent automatically; select rows and use Push Selected Batch.';
+                    this.track('sheet_auto_push_toggled', { enabled: this.autoPushEnabled });
+                },
+                workspaceKey() {
+                    const identity = this.currentUser?.id || this.currentUser?.email;
+                    return identity ? 'nexusleads-workspace-' + identity : '';
+                },
+                loadWorkspace() {
+                    const key = this.workspaceKey();
+                    if (!key) return;
+                    try {
+                        const saved = JSON.parse(localStorage.getItem(key) || '{}');
+                        if (Array.isArray(saved.leads)) this.leads = saved.leads.map(lead => ({ ...lead, selected: Boolean(lead.selected) }));
+                        if (saved.metrics && typeof saved.metrics === 'object') this.metrics = { ...this.metrics, ...saved.metrics };
+                        this.workspaceSavedAt = saved.savedAt || '';
+                        if (this.leads.length) {
+                            this.metrics.found = this.leads.length;
+                            this.metrics.verified = this.leads.filter(lead => lead.phone && lead.email).length;
+                            this.metrics.emails = this.leads.filter(lead => lead.email).length;
+                        }
+                    } catch (error) {
+                        console.warn('Saved lead workspace could not be loaded.');
+                    }
+                },
+                persistWorkspace() {
+                    const key = this.workspaceKey();
+                    if (!key) return;
+                    try {
+                        const savedAt = new Date().toISOString();
+                        localStorage.setItem(key, JSON.stringify({ leads: this.leads.slice(-200), metrics: this.metrics, savedAt }));
+                        this.workspaceSavedAt = savedAt;
+                    } catch (error) {
+                        this.message = 'The browser could not save the full lead workspace. Download a CSV before clearing the page.';
+                        console.warn('Lead workspace could not be persisted locally.', error);
+                    }
+                },
+                clearWorkspace() {
+                    if (!window.confirm('Clear all saved leads and dashboard results for this account? This does not delete your Google Sheet.')) return;
+                    const key = this.workspaceKey();
+                    if (key) localStorage.removeItem(key);
+                    this.leads = [];
+                    this.metrics = { found: 0, verified: 0, emails: 0, sheet: 'Waiting' };
+                    this.progress = 0;
+                    this.stage = 0;
+                    this.workspaceSavedAt = '';
+                    this.message = 'Dashboard lead data cleared. Your Google Sheet was not changed.';
+                    this.track('workspace_cleared', {});
+                },
+                async clearAllUserData() {
+                    if (!window.confirm('Clear encrypted BYOK keys, saved Sheet settings, and all dashboard leads for this account? This does not delete the Google Sheet itself.')) return;
+                    try {
+                        if (this.authToken) {
+                            const response = await fetch(this.apiBase + '/api/account/credentials', { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + this.authToken } });
+                            const data = await response.json().catch(() => ({}));
+                            if (!response.ok || !data.success) throw new Error(data.error || 'Encrypted credential clearing failed.');
+                        }
+                        const key = this.workspaceKey();
+                        if (key) localStorage.removeItem(key);
+                        localStorage.removeItem('nexusleads-sheet-config');
+                        this.byokMapsKey = '';
+                        this.byokGeminiKey = '';
+                        this.byokServiceJson = '';
+                        this.sheetId = '';
+                        this.autoPushEnabled = false;
+                        this.leads = [];
+                        this.metrics = { found: 0, verified: 0, emails: 0, sheet: 'Disconnected' };
+                        this.showByokModal = false;
+                        this.message = 'All saved account data was cleared. BYOK is disconnected and the dashboard is empty.';
+                        this.track('account_data_cleared', {});
+                    } catch (error) {
+                        this.message = error.message || 'Could not clear account data.';
+                    }
+                },
                 loadSheetConfig() {
                     try {
                         const saved = JSON.parse(localStorage.getItem('nexusleads-sheet-config') || '{}');
                         if (typeof saved.sheetId === 'string') this.sheetId = saved.sheetId;
                         if ([20, 25, 30, 40, 50].includes(Number(saved.maxResults))) this.maxResults = Number(saved.maxResults);
+                        if ([50, 100, 200].includes(Number(saved.pushBatchSize))) this.pushBatchSize = Number(saved.pushBatchSize);
                         if (typeof saved.autoPush === 'boolean') this.autoPushEnabled = saved.autoPush;
                         else if (typeof saved.enabled === 'boolean') this.autoPushEnabled = saved.enabled;
                     } catch (error) {
@@ -421,7 +512,7 @@ function leadApp() {
                 },
                 saveSheetConfig() {
                     try {
-                        localStorage.setItem('nexusleads-sheet-config', JSON.stringify({ sheetId: this.sheetId, autoPush: this.autoPushEnabled, maxResults: Number(this.maxResults) }));
+                        localStorage.setItem('nexusleads-sheet-config', JSON.stringify({ sheetId: this.sheetId, autoPush: this.autoPushEnabled, maxResults: Number(this.maxResults), pushBatchSize: Number(this.pushBatchSize) }));
                     } catch (error) {
                         console.warn('Google Sheets configuration could not be saved locally.');
                     }
@@ -434,6 +525,7 @@ function leadApp() {
                 },
                 toggleAll(checked) {
                     this.leads.forEach(lead => { lead.selected = checked; });
+                    this.persistWorkspace();
                 },
                 async syncSelected() {
                     const selected = this.leads.filter(lead => lead.selected);
@@ -445,24 +537,24 @@ function leadApp() {
                         this.message = 'Paste your Google Sheet URL before syncing selected leads.';
                         return;
                     }
+                    const batchSize = Math.min(200, Math.max(50, Number(this.pushBatchSize) || 50));
+                    const batch = selected.slice(0, batchSize);
                     this.manualPushLoading = true;
-                    this.message = `Syncing ${selected.length} selected lead(s) to the Leads and Outreach tabs...`;
+                    this.message = `Syncing ${batch.length} selected lead(s) in ${Math.ceil(batch.length / 50)} API-safe batch(es) to the Leads and Outreach tabs...`;
                     try {
-                        const response = await fetch(this.apiBase + '/api/export', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                sheet_id: this.sheetId,
-                                leads: selected,
-                                leads_sheet_tab: 'Leads',
-                                outreach_sheet_tab: 'Outreach'
-                            })
+                        const data = await this.postJson('/api/export', {
+                            sheet_id: this.sheetId,
+                            leads: batch,
+                            leads_sheet_tab: 'Leads',
+                            outreach_sheet_tab: 'Outreach'
                         });
-                        const data = await response.json();
                         if (!response.ok || !data.success) throw new Error(data.error || data.sheets?.reason || 'Selected sync failed.');
+                        batch.forEach(lead => { lead.selected = false; lead.synced = true; lead.synced_at = new Date().toISOString(); });
+                        this.persistWorkspace();
                         this.metrics.sheet = 'Synced';
-                        this.message = `Selected leads synced: ${data.count} lead(s) to Leads and Outreach.`;
-                        this.track('selected_leads_synced', { lead_count: Number(data.count) || selected.length });
+                        const remainder = selected.length - batch.length;
+                        this.message = `Selected leads synced: ${data.count} lead(s) to Leads and Outreach.${remainder > 0 ? ` ${remainder} selected lead(s) remain ready for the next batch.` : ''}`;
+                        this.track('selected_leads_synced', { lead_count: Number(data.count) || batch.length, batch_size: batchSize });
                         this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: this.message });
                     } catch (error) {
                         this.message = error.message || 'Selected sync failed.';
@@ -481,18 +573,27 @@ function leadApp() {
                         this.message = 'Copy was blocked by the browser. Select the draft from the Google Sheet instead.';
                     }
                 },
-                exportCSV() {
+                exportCSV(selectedOnly = false) {
+                    const exportLeads = selectedOnly ? this.leads.filter(lead => lead.selected) : this.leads;
+                    if (!exportLeads.length) {
+                        this.message = selectedOnly ? 'Select at least one lead before downloading the selected CSV.' : 'There are no leads to download.';
+                        return;
+                    }
                     const cell = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
-                    let csv = ['Name','Category','Phone','Email','Facebook','Instagram','Twitter','LinkedIn','Draft Type','Address','Website','Rating','Verification','Email Subject Draft','Email Message Draft','WhatsApp Message Draft','Personalization Note'].map(cell).join(',') + '\\n';
-                    this.leads.forEach(l => {
-                        csv += [l.name, l.category, l.phone, l.email, l.facebook, l.instagram, l.twitter, l.linkedin, l.draft_type, l.address, l.website, l.rating, l.verification, l.email_subject, l.email_draft, l.whatsapp_draft, l.personalization_note].map(cell).join(',') + '\\n';
+                    let csv = ['Name','Category','Phone','Email','Facebook','Instagram','Twitter','LinkedIn','Draft Type','Address','Website','Rating','Verification','Email Subject Draft','Email Message Draft','WhatsApp Message Draft','Personalization Note','Synced'].map(cell).join(',') + '\\n';
+                    exportLeads.forEach(l => {
+                        csv += [l.name, l.category, l.phone, l.email, l.facebook, l.instagram, l.twitter, l.linkedin, l.draft_type, l.address, l.website, l.rating, l.verification, l.email_subject, l.email_draft, l.whatsapp_draft, l.personalization_note, l.synced ? 'Yes' : 'No'].map(cell).join(',') + '\\n';
                     });
-                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
-                    a.setAttribute('href', url);
-                    a.setAttribute('download', 'leads_export.csv');
+                    a.href = url;
+                    a.download = selectedOnly ? 'nexusleads-selected.csv' : 'nexusleads-all-leads.csv';
+                    document.body.appendChild(a);
                     a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                    this.track('leads_csv_downloaded', { selected_only: selectedOnly, count: exportLeads.length });
                 }
             }
         }

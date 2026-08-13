@@ -26,6 +26,10 @@
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; touch-action: manipulation; -webkit-text-size-adjust: 100%; overflow-x: hidden; }
         [x-cloak] { display: none !important; }
+        .lead-table th, .lead-table td { white-space: nowrap; }
+        .lead-table th { font-size: 0.65rem; letter-spacing: .08em; }
+        .lead-table td { font-size: 0.72rem; }
+        .lead-row-selected { background: rgba(79, 70, 229, .12); }
     </style>
 </head>
 <body class="min-h-full bg-slate-950 text-slate-100" x-data="leadApp()" x-init="initApp()">
@@ -238,8 +242,8 @@
                         <span><strong class="text-violet-300">Generate outreach drafts</strong><span class="block text-xs text-slate-500">Create Email and WhatsApp drafts for each lead</span></span>
                     </label>
                     <label class="inline-flex items-center gap-3 text-sm text-slate-300 cursor-pointer select-none">
-                        <input type="checkbox" x-model="autoPushEnabled" @change="saveSheetConfig()" class="h-4 w-4 accent-cyan-500 rounded border-slate-700 bg-slate-950">
-                        <span><strong class="text-cyan-300">Auto-Push to Google Sheets</strong><span class="block text-xs text-slate-500" x-text="autoPushEnabled ? 'Enabled — all returned leads push automatically' : 'Off — choose leads below and use Sync Selected'"></span></span>
+                        <input type="checkbox" :checked="autoPushEnabled" @change="toggleAutoPush($event.target.checked)" class="h-4 w-4 accent-cyan-500 rounded border-slate-700 bg-slate-950">
+                        <span><strong class="text-cyan-300">Auto-Push to Google Sheets</strong><span class="block text-xs text-slate-500" x-text="autoPushEnabled ? 'Connected — new results sync automatically' : 'Disconnected — nothing pushes until you select rows' "></span></span>
                     </label>
                     <label class="inline-flex items-center gap-3 text-sm text-slate-300 cursor-pointer select-none">
                         <input type="checkbox" x-model="verifiedOnly" class="h-4 w-4 accent-emerald-500 rounded border-slate-700 bg-slate-950">
@@ -257,63 +261,70 @@
 
         <!-- Results Section -->
         <div x-show="leads.length > 0 || loading" class="space-y-6">
-            <div class="flex items-center justify-between">
-                <h2 class="text-xl font-bold flex items-center space-x-2">
-                    <i class="fa-solid fa-list-check text-indigo-400"></i>
-                    <span>Discovered Leads</span>
-                    <span class="text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 ml-2" x-text="leads.length"></span>
-                </h2>
-                <div class="flex flex-wrap items-center justify-end gap-2">
-                    <label x-show="leads.length > 0" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-700 bg-slate-900 text-xs text-slate-300 cursor-pointer">
+                <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
+                <div>
+                    <h2 class="text-xl font-bold flex items-center space-x-2">
+                        <i class="fa-solid fa-list-check text-indigo-400"></i>
+                        <span>Saved Lead Results</span>
+                        <span class="text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 ml-2" x-text="leads.length"></span>
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-1"><span x-text="selectedCount()"></span> selected · <span x-text="workspaceSavedAt ? 'saved locally for this account' : 'ready to save' "></span></p>
+                </div>
+                <div class="flex flex-wrap items-center justify-start xl:justify-end gap-2">
+                    <label x-show="leads.length > 0" class="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-900 text-xs text-slate-300 cursor-pointer">
                         <input type="checkbox" :checked="allSelected()" @change="toggleAll($event.target.checked)" class="h-4 w-4 accent-indigo-500 rounded border-slate-700 bg-slate-950">
-                        <span>Select All</span>
+                        <span>Select all / uncheck all</span>
                     </label>
-                    <button @click="toggleAll(false)" x-show="selectedCount() > 0" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg transition">Clear</button>
-                    <button @click="syncSelected" x-show="leads.length > 0" :disabled="manualPushLoading || selectedCount() === 0" class="px-4 py-2 bg-gradient-to-r from-emerald-600 to-cyan-500 hover:from-emerald-500 hover:to-cyan-400 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition flex items-center space-x-2">
+                    <select x-model="pushBatchSize" @change="saveSheetConfig()" class="px-2.5 py-1.5 rounded-lg border border-emerald-500/30 bg-slate-900 text-xs text-emerald-200 focus:outline-none">
+                        <option :value="50">Push 50 max</option>
+                        <option :value="100">Push 100 max</option>
+                        <option :value="200">Push 200 max</option>
+                    </select>
+                    <button @click="toggleAll(false)" x-show="selectedCount() > 0" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg transition">Uncheck</button>
+                    <button @click="syncSelected" x-show="leads.length > 0" :disabled="manualPushLoading || selectedCount() === 0" class="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-cyan-500 hover:from-emerald-500 hover:to-cyan-400 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition flex items-center space-x-2">
                         <i class="fa-solid fa-cloud-arrow-up" :class="{'fa-spin': manualPushLoading}"></i>
-                        <span x-text="manualPushLoading ? 'Syncing...' : 'Sync Selected (' + selectedCount() + ')' "></span>
+                        <span x-text="manualPushLoading ? 'Pushing...' : 'Push Selected Batch (' + selectedCount() + ')' "></span>
                     </button>
-                    <button @click="exportCSV" x-show="leads.length > 0" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium rounded-lg transition flex items-center space-x-2">
-                        <i class="fa-solid fa-download"></i>
-                        <span>Export CSV</span>
-                    </button>
+                    <button @click="exportCSV(true)" x-show="selectedCount() > 0" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg transition"><i class="fa-solid fa-download mr-1"></i> Selected CSV</button>
+                    <button @click="exportCSV(false)" x-show="leads.length > 0" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg transition"><i class="fa-solid fa-file-arrow-down mr-1"></i> All CSV</button>
+                    <button @click="clearWorkspace" x-show="leads.length > 0" class="px-3 py-1.5 bg-rose-950/60 hover:bg-rose-900/70 border border-rose-500/20 text-rose-300 text-xs font-medium rounded-lg transition"><i class="fa-solid fa-trash-can mr-1"></i> Clear Dashboard</button>
                 </div>
             </div>
 
             <div class="bg-slate-900/80 border border-slate-800 rounded-2xl shadow-xl overflow-hidden backdrop-blur-xl">
                 <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
+                    <table class="lead-table min-w-[1180px] w-full text-left border-collapse">
                         <thead>
                             <tr class="border-b border-slate-800 text-xs font-semibold uppercase tracking-wider text-slate-400 bg-slate-950/50">
-                                <th class="p-4 w-12">
+                                <th class="p-2 w-10">
                                     <input type="checkbox" :checked="allSelected()" @change="toggleAll($event.target.checked)" aria-label="Select all leads" class="h-4 w-4 accent-indigo-500 rounded border-slate-700 bg-slate-950">
                                 </th>
-                                <th class="p-4">Business Name</th>
-                                <th class="p-4">Category</th>
-                                <th class="p-4">Phone</th>
-                                <th class="p-4">Email</th>
-                                <th class="p-4">Socials</th>
-                                <th class="p-4">Drafts</th>
-                                <th class="p-4">Address</th>
-                                <th class="p-4">Website</th>
-                                <th class="p-4">Rating</th>
-                                <th class="p-4">Status</th>
+                                <th class="p-2">Business</th>
+                                <th class="p-2">Category</th>
+                                <th class="p-2">Phone</th>
+                                <th class="p-2">Email</th>
+                                <th class="p-2">Socials</th>
+                                <th class="p-2">Drafts</th>
+                                <th class="p-2">Address</th>
+                                <th class="p-2">Website</th>
+                                <th class="p-2">Rating</th>
+                                <th class="p-2">Status</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-800 text-sm">
-                            <template x-for="lead in leads" :key="lead.name">
-                                <tr class="hover:bg-slate-800/50 transition">
-                                    <td class="p-4 align-top">
-                                        <input type="checkbox" x-model="lead.selected" :aria-label="'Select ' + lead.name" class="h-4 w-4 accent-indigo-500 rounded border-slate-700 bg-slate-950">
+                            <template x-for="(lead, index) in leads" :key="lead.place_id || lead.name + '-' + index">
+                                <tr :class="lead.selected ? 'lead-row-selected' : ''" class="hover:bg-slate-800/50 transition">
+                                    <td class="p-2 align-top">
+                                        <input type="checkbox" x-model="lead.selected" @change="persistWorkspace()" :aria-label="'Select ' + lead.name" class="h-4 w-4 accent-indigo-500 rounded border-slate-700 bg-slate-950">
                                     </td>
-                                    <td class="p-4 font-semibold text-white" x-text="lead.name"></td>
-                                    <td class="p-4 text-slate-300" x-text="lead.category"></td>
-                                    <td class="p-4 text-slate-300" x-text="lead.phone || 'Not listed'"></td>
-                                    <td class="p-4">
+                                    <td class="p-2 max-w-[180px] truncate font-semibold text-white" :title="lead.name" x-text="lead.name"></td>
+                                    <td class="p-2 max-w-[130px] truncate text-slate-300" :title="lead.category" x-text="lead.category"></td>
+                                    <td class="p-2 text-slate-300" x-text="lead.phone || 'Not listed'"></td>
+                                    <td class="p-2 max-w-[190px] truncate">
                                         <a :href="lead.email ? 'mailto:' + lead.email : null" class="text-cyan-400 hover:underline" x-show="lead.email" x-text="lead.email"></a>
                                         <span x-show="!lead.email" class="text-slate-600">Not listed</span>
                                     </td>
-                                    <td class="p-4">
+                                    <td class="p-2">
                                         <div class="flex items-center space-x-2 text-base">
                                             <a :href="lead.facebook" target="_blank" title="Facebook" class="text-blue-400 hover:text-blue-300" x-show="lead.facebook"><i class="fa-brands fa-facebook"></i></a>
                                             <a :href="lead.instagram" target="_blank" title="Instagram" class="text-pink-400 hover:text-pink-300" x-show="lead.instagram"><i class="fa-brands fa-instagram"></i></a>
@@ -322,29 +333,29 @@
                                             <span class="text-slate-600 text-xs" x-show="!lead.facebook && !lead.instagram && !lead.twitter && !lead.linkedin">None</span>
                                         </div>
                                     </td>
-                                    <td class="p-4">
-                                        <div class="flex flex-col gap-2 min-w-[150px]">
+                                    <td class="p-2">
+                                        <div class="flex flex-col gap-1 min-w-[140px]">
                                             <span x-show="lead.draft_type" class="text-violet-300 text-xs font-semibold" x-text="lead.draft_type"></span>
                                             <button @click="copyText(lead.email_draft)" x-show="lead.email_draft" class="text-left text-xs px-2 py-1 rounded bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 transition"><i class="fa-solid fa-envelope mr-1"></i> Copy Email Draft</button>
                                             <button @click="copyText(lead.whatsapp_draft)" x-show="lead.whatsapp_draft" class="text-left text-xs px-2 py-1 rounded bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 transition"><i class="fa-brands fa-whatsapp mr-1"></i> Copy WhatsApp Draft</button>
                                             <span x-show="!lead.email_draft && !lead.whatsapp_draft" class="text-slate-600 text-xs">Not generated</span>
                                         </div>
                                     </td>
-                                    <td class="p-4 text-slate-400" x-text="lead.address"></td>
-                                    <td class="p-4">
+                                    <td class="p-2 max-w-[220px] truncate text-slate-400" :title="lead.address" x-text="lead.address"></td>
+                                    <td class="p-2 max-w-[170px] truncate">
                                         <a :href="lead.website" target="_blank" class="text-indigo-400 hover:underline flex items-center space-x-1" x-show="lead.website !== 'N/A'">
                                             <span x-text="lead.website"></span>
                                             <i class="fa-solid fa-external-link text-xs"></i>
                                         </a>
                                         <span x-show="lead.website === 'N/A'" class="text-slate-600">N/A</span>
                                     </td>
-                                    <td class="p-4">
+                                    <td class="p-2">
                                         <span class="inline-flex items-center text-amber-400 font-medium">
                                             <i class="fa-solid fa-star mr-1 text-xs"></i> <span x-text="lead.rating"></span>
                                         </span>
                                     </td>
-                                    <td class="p-4">
-                                        <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" x-text="lead.status"></span>
+                                    <td class="p-2">
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold border" :class="lead.synced ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-300 border-amber-500/20'" x-text="lead.synced ? 'Synced' : 'Ready'"></span>
                                     </td>
                                 </tr>
                             </template>
@@ -390,6 +401,14 @@
                 <button @click="showPricingModal = false" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg transition">Close</button>
                 <button @click="alert('Redirecting to secure upgrade checkout...'); showPricingModal = false;" class="px-5 py-2 bg-gradient-to-r from-amber-500 to-indigo-600 text-white text-xs font-bold rounded-lg shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40 transition">Upgrade to Pro ($169/mo)</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Workspace safety actions -->
+    <div x-show="currentUser" x-cloak class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-10">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-3">
+            <p class="text-xs text-slate-500"><i class="fa-solid fa-lock text-emerald-400 mr-1"></i> Lead selections and results are saved locally per logged-in account. Google Sheet changes happen only when you push.</p>
+            <button @click="clearAllUserData" class="text-xs text-rose-300 hover:text-rose-200 underline">Clear BYOK, Sheet settings & dashboard data</button>
         </div>
     </div>
 

@@ -509,6 +509,14 @@ async function handleCredentialSave(request, env) {
   });
 }
 
+async function handleCredentialClear(request, env) {
+  const user = await sessionUser(request, env);
+  if (!user) return json({ success: false, code: "AUTH_REQUIRED", error: "Authentication required" }, 401);
+  if (!env.NEXUS_DB) return json({ success: false, error: "Database is not configured" }, 503);
+  await env.NEXUS_DB.prepare("DELETE FROM api_credentials WHERE user_id = ?").bind(user.id).run();
+  return json({ success: true, cleared: true, message: "Your encrypted BYOK credentials were removed." });
+}
+
 function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
     status,
@@ -527,7 +535,7 @@ function corsHeaders(request, env) {
   const origin = request.headers.get("Origin") || "";
   const allowedOrigins = getAllowedOrigins(env);
   const headers = {
-    "access-control-allow-methods": "GET,POST,OPTIONS",
+    "access-control-allow-methods": "GET,POST,DELETE,OPTIONS",
     "access-control-allow-headers": "content-type, authorization, x-nexus-client-id",
     "vary": "Origin",
   };
@@ -678,46 +686,52 @@ async function appendToGoogleSheet(leads, requestBody, env) {
   const { leadsTab, outreachTab } = resolveSheetTabs(requestBody, env);
   const accessToken = await googleAccessToken(serviceAccount);
   const authHeaders = { authorization: `Bearer ${accessToken}`, "content-type": "application/json" };
-  const leadRows = leads.map((lead) => [
-    lead.name,
-    lead.category,
-    lead.phone,
-    lead.email,
-    lead.address,
-    lead.website,
-    lead.rating,
-    lead.verification,
-    lead.source,
-    lead.collected_at,
-    lead.facebook || "",
-    lead.instagram || "",
-    lead.twitter || "",
-    lead.linkedin || "",
-  ]);
-  const outreachRows = leads.map((lead) => [
-    lead.name,
-    lead.category,
-    lead.phone,
-    lead.email,
-    lead.address,
-    lead.website,
-    lead.draft_type || "general",
-    lead.email_subject || "",
-    lead.email_draft || "",
-    lead.whatsapp_draft || "",
-    lead.personalization_note || "",
-    OUTREACH_PROFILE.email_sender,
-    OUTREACH_PROFILE.support_cta,
-    OUTREACH_PROFILE.website,
-  ]);
-
-  const leadsResult = await appendSheetRows(sheetId, leadsTab, LEADS_SHEET_HEADERS, leadRows, authHeaders, true);
-  const outreachResult = await appendSheetRows(sheetId, outreachTab, OUTREACH_SHEET_HEADERS, outreachRows, authHeaders);
+  const chunkSize = 50;
+  const batchResults = [];
+  for (let offset = 0; offset < leads.length; offset += chunkSize) {
+    const chunk = leads.slice(offset, offset + chunkSize);
+    const leadRows = chunk.map((lead) => [
+      lead.name,
+      lead.category,
+      lead.phone,
+      lead.email,
+      lead.address,
+      lead.website,
+      lead.rating,
+      lead.verification,
+      lead.source,
+      lead.collected_at,
+      lead.facebook || "",
+      lead.instagram || "",
+      lead.twitter || "",
+      lead.linkedin || "",
+    ]);
+    const outreachRows = chunk.map((lead) => [
+      lead.name,
+      lead.category,
+      lead.phone,
+      lead.email,
+      lead.address,
+      lead.website,
+      lead.draft_type || "general",
+      lead.email_subject || "",
+      lead.email_draft || "",
+      lead.whatsapp_draft || "",
+      lead.personalization_note || "",
+      OUTREACH_PROFILE.email_sender,
+      OUTREACH_PROFILE.support_cta,
+      OUTREACH_PROFILE.website,
+    ]);
+    const leadsResult = await appendSheetRows(sheetId, leadsTab, LEADS_SHEET_HEADERS, leadRows, authHeaders, offset === 0);
+    const outreachResult = await appendSheetRows(sheetId, outreachTab, OUTREACH_SHEET_HEADERS, outreachRows, authHeaders);
+    batchResults.push({ batch: Math.floor(offset / chunkSize) + 1, rows: chunk.length, leads: leadsResult, outreach: outreachResult });
+  }
   return {
     exported: true,
     sheet_tab: leadsTab,
     outreach_sheet_tab: outreachTab,
-    sheet_tabs: { leads: leadsResult, outreach: outreachResult },
+    sheet_tabs: { leads: batchResults[0]?.leads || null, outreach: batchResults[0]?.outreach || null },
+    batches: batchResults,
     rows: leads.length,
   };
 }
@@ -1145,7 +1159,8 @@ async function handleScrape(request, env) {
 async function handleExport(request, env) {
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== "object" || !Array.isArray(body.leads)) return json({ success: false, error: "Select at least one lead before syncing" }, 400);
-  const leads = body.leads.filter((lead) => lead && typeof lead === "object").slice(0, 50);
+  const cleanLeads = body.leads.filter((lead) => lead && typeof lead === "object");
+  const leads = cleanLeads.slice(0, 200);
   if (!leads.length) return json({ success: false, error: "Select at least one lead before syncing" }, 400);
   const user = await sessionUser(request, env);
   if (!user) return json({ success: false, code: "AUTH_REQUIRED", error: "Please log in before syncing leads" }, 401);
@@ -1155,7 +1170,7 @@ async function handleExport(request, env) {
   // Admin Notification: Successful Lead Sync (Regeneration/Usage)
   await notifyAdmin("Lead Sync Success", { user_email: user.email, count: leads.length, sheet_id: body.sheet_id }, env).catch(() => null);
 
-  return json({ success: true, count: leads.length, sheets, mode: "manual_selected" });
+  return json({ success: true, count: leads.length, requested_count: cleanLeads.length, truncated: cleanLeads.length > leads.length, sheets, mode: "manual_selected", batch_limit: 50 });
 }
 
 export default {
@@ -1177,6 +1192,7 @@ export default {
       else if (request.method === "POST" && url.pathname === "/api/reviews") response = await handlePublicReviews(request, env);
       else if (request.method === "POST" && url.pathname === "/api/newsletter") response = await handleNewsletterSubscribe(request, env);
       else if (request.method === "POST" && url.pathname === "/api/account/credentials") response = await handleCredentialSave(request, env);
+      else if (request.method === "DELETE" && url.pathname === "/api/account/credentials") response = await handleCredentialClear(request, env);
       else if (request.method === "POST" && url.pathname === "/api/account/sheet-check") response = await handleSheetAccessCheck(request, env);
       else if (request.method === "POST" && url.pathname === "/api/discover") response = await handleDiscover(request, env);
       else if (request.method === "POST" && url.pathname === "/api/enrich") response = await handleEnrich(request, env);
