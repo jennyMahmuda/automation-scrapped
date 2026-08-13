@@ -40,30 +40,59 @@
 
     <!-- Structured Data (JSON-LD) -->
     <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "Organization",
-      "name": "SmartGen Tools",
-      "url": "https://smartgentools.com",
-      "logo": "https://smartgentools.com/logo.png",
-      "sameAs": [
-        "https://sayadbayezid.com"
-      ]
-    }
-    </script>
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "Person",
-      "name": "Sayad Md Bayezid Hosan",
-      "url": "https://sayadbayezid.com",
-      "birthDate": "2003-06-26",
-      "jobTitle": "Founder & Developer",
-      "worksFor": {
+    [
+      {
+        "@context": "https://schema.org",
         "@type": "Organization",
-        "name": "SmartGen Tools"
+        "@id": "https://smartgentools.com/#organization",
+        "name": "SmartGen Tools",
+        "url": "https://smartgentools.com",
+        "logo": "https://smartgentools.com/logo.png",
+        "founder": {
+          "@id": "https://sayadbayezid.com/#person"
+        },
+        "sameAs": [
+          "https://sayadbayezid.com",
+          "https://sayadbayezid.com/verified-profiles/"
+        ]
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "Person",
+        "@id": "https://sayadbayezid.com/#person",
+        "name": "Sayad Md Bayezid Hosan",
+        "url": "https://sayadbayezid.com",
+        "birthDate": "2003-06-26",
+        "jobTitle": "Founder & Developer",
+        "worksFor": {
+          "@id": "https://smartgentools.com/#organization"
+        },
+        "sameAs": [
+          "https://sayadbayezid.com/verified-profiles/",
+          "https://facebook.com/Connectwithbayezid",
+          "https://twitter.com/sayadbayezid",
+          "https://linkedin.com/in/sayadbayezid"
+        ]
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "NexusLeads",
+        "operatingSystem": "Web",
+        "applicationCategory": "BusinessApplication",
+        "author": {
+          "@id": "https://sayadbayezid.com/#person"
+        },
+        "publisher": {
+          "@id": "https://smartgentools.com/#organization"
+        },
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        }
       }
-    }
+    ]
     </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
