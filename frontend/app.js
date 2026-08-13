@@ -543,10 +543,18 @@ function leadApp() {
                 get tierLabel() {
                     if (!this.currentUser) return '';
                     if (this.currentUser.is_paid) {
-                        if (this.credits.byok?.maps) return 'Now you use your BYOK';
-                        return 'Pro Status';
+                        if (this.credits.byok?.maps) return 'Now you use your BOYOK';
+                        return 'Now you use our PRO Status';
                     }
-                    return 'Now you use our Free Tier';
+                    return 'Now you use our FREE Tier';
+                },
+                get tierBadge() {
+                    if (!this.currentUser) return '';
+                    if (this.currentUser.is_paid) {
+                        if (this.credits.byok?.maps) return 'BOYOK';
+                        return 'PRO';
+                    }
+                    return 'FREE';
                 },
                 loadSheetConfig() {
                     try {
