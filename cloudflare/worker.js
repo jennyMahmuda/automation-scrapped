@@ -1144,12 +1144,16 @@ async function handleDiscover(request, env) {
   let reservation = null;
   try {
     const search = await prepareSearch(body, userEnv);
-    reservation = await reserveDailyCredits(request, quotaBody, env, search.target);
-    if (!reservation.allowed) return json({ success: false, code: "DAILY_CREDIT_LIMIT", error: reservation.error, credits: reservation.credits, pricing: calculatePricingEstimate() }, 402);
+    const isByok = Boolean(userEnv.GOOGLE_MAP_API_NEW);
+    if (!isByok) {
+      reservation = await reserveDailyCredits(request, quotaBody, env, search.target);
+      if (!reservation.allowed) return json({ success: false, code: "DAILY_CREDIT_LIMIT", error: reservation.error, credits: reservation.credits, pricing: calculatePricingEstimate() }, 402);
+    }
     const candidateTarget = Math.min(120, Math.max(60, search.target * 2));
     const candidates = await googlePlacesSearchVariants(search.keyword, search.location, candidateTarget, userEnv);
     if (env.NEXUS_DB) await env.NEXUS_DB.prepare("INSERT INTO search_runs (id, user_id, keyword, location, requested_count, candidate_count, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(randomId(), user.id, search.keyword, search.location, search.target, candidates.length, new Date().toISOString()).run().catch(() => null);
-    return json({ success: true, stage: "discovered", keyword: search.keyword, location: search.location, target: search.target, candidate_count: candidates.length, candidates, reservation_id: reservation.reservationId, credits: reservation.credits, byok: { maps: Boolean(userEnv.GOOGLE_MAP_API_NEW), service_account_available: Boolean(userEnv.GOOGLE_SERVICE_ACCOUNT_JSON || userEnv.GOOGLESERVICES_JSON) }, paging: { max_pages: 3, provider_limit: 60 } });
+    const credits = isByok ? (await readDailyCredits(request, quotaBody, env)).credits : reservation.credits;
+    return json({ success: true, stage: "discovered", keyword: search.keyword, location: search.location, target: search.target, candidate_count: candidates.length, candidates, reservation_id: reservation?.reservationId || "", credits, byok: { maps: Boolean(userEnv.GOOGLE_MAP_API_NEW), service_account_available: Boolean(userEnv.GOOGLE_SERVICE_ACCOUNT_JSON || userEnv.GOOGLESERVICES_JSON) }, paging: { max_pages: 3, provider_limit: 60 } });
   } catch (error) {
     if (reservation?.reservationId) await settleDailyCredits(request, { ...quotaBody, reservation_id: reservation.reservationId, actual_leads: 0 }, env).catch(() => null);
     return json({ success: false, error: error instanceof Error ? error.message : "Discovery failed" }, 502);
@@ -1159,8 +1163,17 @@ async function handleDiscover(request, env) {
 async function handleUsage(request, env) {
   const user = await sessionUser(request, env);
   if (!user) return json({ success: false, code: "AUTH_REQUIRED", error: "Please log in to view your daily credits" }, 401);
+  const userEnv = await effectiveUserEnv(user, env);
   const usage = await readDailyCredits(request, { client_id: user.id }, env);
-  return json({ success: true, user, credits: usage.credits, pricing: calculatePricingEstimate() });
+  const credits = {
+    ...usage.credits,
+    byok: {
+      maps: Boolean(userEnv.GOOGLE_MAP_API_NEW),
+      gemini: Boolean(userEnv.GEMINI_API_KEY || userEnv.GEMINI_OUTREACH_API_KEY),
+      service_account: Boolean(userEnv.GOOGLE_SERVICE_ACCOUNT_JSON || userEnv.GOOGLESERVICES_JSON)
+    }
+  };
+  return json({ success: true, user, credits, pricing: calculatePricingEstimate() });
 }
 
 async function handlePricing() {

@@ -430,7 +430,11 @@
                 <!-- Google Maps Key -->
                 <div class="bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800">
                     <div class="flex items-center justify-between mb-1.5">
-                        <label class="block text-xs font-bold text-slate-200">Google Maps API Key (New)</label>
+                        <div class="flex items-center gap-2">
+                            <label class="block text-xs font-bold text-slate-200">Google Maps API Key (New)</label>
+                            <span x-show="credits.byok?.maps" class="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider border border-emerald-500/30">Connected</span>
+                            <span x-show="!credits.byok?.maps" class="text-[9px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider border border-slate-700">Not Set</span>
+                        </div>
                         <a href="https://console.cloud.google.com/google/maps-apis/credentials" target="_blank" rel="noopener noreferrer" class="text-[11px] text-cyan-300 hover:text-cyan-200 underline flex items-center gap-1">
                             Get Google Maps Key <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
                         </a>
@@ -441,7 +445,11 @@
                 <!-- Gemini API Key -->
                 <div class="bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800">
                     <div class="flex items-center justify-between mb-1.5">
-                        <label class="block text-xs font-bold text-slate-200">Gemini API Key (AI Outreach)</label>
+                        <div class="flex items-center gap-2">
+                            <label class="block text-xs font-bold text-slate-200">Gemini API Key (AI Outreach)</label>
+                            <span x-show="credits.byok?.gemini" class="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider border border-emerald-500/30">Connected</span>
+                            <span x-show="!credits.byok?.gemini" class="text-[9px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider border border-slate-700">Not Set</span>
+                        </div>
                         <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="text-[11px] text-cyan-300 hover:text-cyan-200 underline flex items-center gap-1">
                             Get Gemini Key <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
                         </a>
@@ -452,7 +460,11 @@
                 <!-- Google Service Account JSON -->
                 <div class="bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800">
                     <div class="flex items-center justify-between mb-1.5">
-                        <label class="block text-xs font-bold text-slate-200">Google Service Account JSON</label>
+                        <div class="flex items-center gap-2">
+                            <label class="block text-xs font-bold text-slate-200">Google Service Account JSON</label>
+                            <span x-show="credits.byok?.service_account" class="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider border border-emerald-500/30">Connected</span>
+                            <span x-show="!credits.byok?.service_account" class="text-[9px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider border border-slate-700">Not Set</span>
+                        </div>
                         <a href="https://console.cloud.google.com/iam-admin/serviceaccounts" target="_blank" rel="noopener noreferrer" class="text-[11px] text-cyan-300 hover:text-cyan-200 underline flex items-center gap-1">
                             Open Service Accounts <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
                         </a>
