@@ -550,6 +550,19 @@ async function handleAdminEnablePaid(request, env) {
   });
 }
 
+async function handleAdminListUsers(request, env) {
+  const authHeader = request.headers.get("X-Admin-Secret") || request.headers.get("Authorization") || "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : authHeader;
+  const adminSecret = env.ADMIN_SECRET || "nexusleads-admin-2026-secret";
+  if (!token || token !== adminSecret) {
+    return json({ success: false, error: "Unauthorized admin secret" }, 401);
+  }
+  if (!env.NEXUS_DB) return json({ success: false, error: "Database not configured" }, 503);
+  
+  const users = await env.NEXUS_DB.prepare("SELECT email, plan, is_paid, created_at, last_login_at FROM users ORDER BY created_at DESC LIMIT 100").all();
+  return json({ success: true, users: users.results });
+}
+
 function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
     status,
@@ -1227,6 +1240,7 @@ export default {
       else if (request.method === "POST" && url.pathname === "/api/account/credentials") response = await handleCredentialSave(request, env);
       else if (request.method === "DELETE" && url.pathname === "/api/account/credentials") response = await handleCredentialClear(request, env);
       else if (request.method === "POST" && url.pathname === "/api/admin/enable-paid") response = await handleAdminEnablePaid(request, env);
+      else if (request.method === "GET" && url.pathname === "/api/admin/users") response = await handleAdminListUsers(request, env);
       else if (request.method === "POST" && url.pathname === "/api/account/sheet-check") response = await handleSheetAccessCheck(request, env);
       else if (request.method === "POST" && url.pathname === "/api/discover") response = await handleDiscover(request, env);
       else if (request.method === "POST" && url.pathname === "/api/enrich") response = await handleEnrich(request, env);

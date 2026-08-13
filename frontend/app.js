@@ -498,19 +498,34 @@ function leadApp() {
                         this.message = error.message || 'Could not clear account data.';
                     }
                 },
-                openByok() {
+                async openByok() {
                     if (!this.currentUser) {
                         this.authMode = 'login';
                         this.showAuthModal = true;
                         this.message = 'Please log in to configure BYOK API keys.';
                         return;
                     }
+                    
+                    // Refresh user status from server to check for manual activation
+                    try {
+                        const headers = { 'X-Nexus-Client-ID': this.clientId };
+                        if (this.authToken) headers['Authorization'] = 'Bearer ' + this.authToken;
+                        const res = await fetch(this.apiBase + '/api/usage', { headers });
+                        const data = await res.json();
+                        if (data.success && data.user) {
+                            this.currentUser = data.user;
+                        }
+                    } catch (e) {
+                        console.warn('Could not refresh account status', e);
+                    }
+
                     if (!this.currentUser.is_paid) {
                         this.showPricingModal = true;
                         this.message = 'BYOK API configuration requires an activated paid plan ($3, $5, or $10 via PayPal at paypal.me/Connectwithbayezid). Once paid, the admin will enable your account.';
                         return;
                     }
                     this.showByokModal = true;
+                    await this.loadAccountStatus();
                 },
                 loadSheetConfig() {
                     try {

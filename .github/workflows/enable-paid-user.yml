@@ -17,6 +17,11 @@ jobs:
           USER_EMAIL: ${{ inputs.user_email }}
           ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
         run: |
+          if [ -z "$ADMIN_SECRET" ]; then
+            echo "::error::ADMIN_SECRET is missing! Go to Settings > Secrets and variables > Actions and add 'ADMIN_SECRET' with the value 'nexusleads-admin-2026-secret' (or your custom secret)."
+            exit 1
+          fi
+
           echo "Activating paid BYOK status for user: $USER_EMAIL"
           response=$(curl -sS -w "\nHTTP_STATUS:%{http_code}" -X POST \
             "https://nexusleads-api.mahmudajenny6.workers.dev/api/admin/enable-paid" \
@@ -24,14 +29,17 @@ jobs:
             -H "X-Admin-Secret: $ADMIN_SECRET" \
             -d "{\"email\":\"$USER_EMAIL\"}")
           
-          http_status=$(echo "$response" | grep "HTTP_STATUS" | cut -d':' -f2)
+          http_status=$(echo "$response" | grep "HTTP_STATUS" | tr -d '[:space:]' | cut -d':' -f2)
           body=$(echo "$response" | sed '/HTTP_STATUS/d')
           
           echo "Response Status: $http_status"
           echo "Response Body: $body"
           
-          if [ "$http_status" -ne 200 ]; then
-            echo "Error: Failed to enable paid user."
+          if [ "$http_status" -eq 404 ]; then
+            echo "::error::User not found! Ensure the user '$USER_EMAIL' has registered on the website first."
+            exit 1
+          elif [ "$http_status" -ne 200 ]; then
+            echo "::error::Failed to enable paid user. Backend returned $http_status."
             exit 1
           fi
           echo "Successfully activated $USER_EMAIL for BYOK!"
