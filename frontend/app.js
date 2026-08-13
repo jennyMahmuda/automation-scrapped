@@ -122,12 +122,17 @@ function leadApp() {
                             this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: `Verified and enriched ${Math.min(index + batch.length, candidates.length)} of ${candidates.length} candidates.` });
                         }
                         const verified = enriched.filter(item => item.phone && item.email);
-                        const finalLeads = (this.verifiedOnly ? verified : enriched).slice(0, Number(this.maxResults));
-                        this.leads = finalLeads.map(item => ({ ...item, selected: false, synced: false }));
-                        this.persistWorkspace();
-                        this.metrics.found = this.leads.length;
-                        this.metrics.verified = verified.length;
-                        this.metrics.emails = enriched.filter(item => item.email).length;
+                    const incomingLeads = (this.verifiedOnly ? verified : enriched).slice(0, Number(this.maxResults));
+                    const existingIds = new Set(this.leads.map(l => l.place_id || `${l.name}|${l.address}`));
+                    const newLeads = incomingLeads
+                        .map(item => ({ ...item, selected: false, synced: false }))
+                        .filter(item => !existingIds.has(item.place_id || `${item.name}|${item.address}`));
+                    
+                    this.leads = [...this.leads, ...newLeads];
+                    this.persistWorkspace();
+                    this.metrics.found = this.leads.length;
+                    this.metrics.verified = this.leads.filter(l => l.phone && l.email).length;
+                    this.metrics.emails = this.leads.filter(l => l.email).length;
                         this.stage = 3;
                         this.progress = 90;
                         let sheetMessage;
@@ -462,7 +467,7 @@ function leadApp() {
                     if (!key) return;
                     try {
                         const savedAt = new Date().toISOString();
-                        localStorage.setItem(key, JSON.stringify({ leads: this.leads.slice(-200), metrics: this.metrics, savedAt }));
+                        localStorage.setItem(key, JSON.stringify({ leads: this.leads.slice(-500), metrics: this.metrics, savedAt }));
                         this.workspaceSavedAt = savedAt;
                     } catch (error) {
                         this.message = 'The browser could not save the full lead workspace. Download a CSV before clearing the page.';
@@ -478,7 +483,7 @@ function leadApp() {
                     this.progress = 0;
                     this.stage = 0;
                     this.workspaceSavedAt = '';
-                    this.message = 'Dashboard lead data cleared. Your Google Sheet was not changed.';
+                    this.message = 'Now you clear all: Dashboard lead data cleared. Your Google Sheet was not changed.';
                     this.track('workspace_cleared', {});
                 },
                 async clearAllUserData() {
@@ -535,6 +540,14 @@ function leadApp() {
                     this.showByokModal = true;
                     await this.loadAccountStatus();
                 },
+                get tierLabel() {
+                    if (!this.currentUser) return '';
+                    if (this.currentUser.is_paid) {
+                        if (this.credits.byok?.maps) return 'Now you use your BYOK';
+                        return 'Pro Status';
+                    }
+                    return 'Now you use our Free Tier';
+                },
                 loadSheetConfig() {
                     try {
                         const saved = JSON.parse(localStorage.getItem('nexusleads-sheet-config') || '{}');
@@ -585,7 +598,7 @@ function leadApp() {
                             leads_sheet_tab: 'Leads',
                             outreach_sheet_tab: 'Outreach'
                         });
-                        if (!response.ok || !data.success) throw new Error(data.error || data.sheets?.reason || 'Selected sync failed.');
+                        // postJson already handles error throwing for response.ok and data.success
                         batch.forEach(lead => { lead.selected = false; lead.synced = true; lead.synced_at = new Date().toISOString(); });
                         this.persistWorkspace();
                         this.metrics.sheet = 'Synced';
