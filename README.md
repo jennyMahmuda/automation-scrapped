@@ -1,4 +1,4 @@
-# NexusLeads
+# NexusLeads [Live](https://jennymahmuda.github.io/automation-scrapped/)
 
 NexusLeads is a premium lead-research application with a responsive GitHub Pages frontend and an edge backend on Cloudflare Workers. It discovers public business listings from Google Places, verifies public website details, optionally enriches the listing with Firecrawl and Gemini, and appends the results to Google Sheets.
 
