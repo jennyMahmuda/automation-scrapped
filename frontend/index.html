@@ -8,6 +8,22 @@
     <meta name="keywords" content="B2B Lead Generation, Business Scraper, Email Finder, SmartGen Tools, Sayad Md Bayezid Hosan, NexusLeads">
     <meta name="nexus-api-base" content="https://nexusleads-api.mahmudajenny6.workers.dev">
 
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-7FPD269E1J"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-7FPD269E1J', { anonymize_ip: true });
+      window.nexusTrack = function(eventName, parameters = {}) {
+        if (typeof window.gtag === 'function') window.gtag('event', eventName, parameters);
+      };
+      document.addEventListener('click', function(event) {
+        const link = event.target.closest('a[href^="#"]');
+        if (link) window.nexusTrack('navigation_click', { target: link.getAttribute('href') });
+      });
+    </script>
+
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://smartgentools.com/">
@@ -532,8 +548,8 @@
             <div class="text-center max-w-3xl mx-auto mb-7"><p class="text-xs uppercase tracking-[0.25em] text-amber-300 font-semibold">Simple access</p><h2 class="text-3xl sm:text-4xl font-extrabold text-white mt-2">Start free. Bring your own keys. Upgrade when you are ready.</h2><p class="text-sm text-slate-400 leading-7 mt-3">Choose the level that fits your workflow. BYOK keeps provider billing in your hands while the managed Pro plan covers the platform APIs and support.</p></div>
             <div class="grid lg:grid-cols-3 gap-5">
                 <div class="rounded-3xl border border-cyan-400/20 bg-slate-900/80 p-7 shadow-xl"><p class="text-xs uppercase tracking-wider text-cyan-300 font-semibold">Free tier</p><h3 class="text-3xl font-extrabold text-white mt-2">$0 <span class="text-sm font-medium text-slate-500">to start</span></h3><p class="text-sm text-slate-400 leading-7 mt-3">Explore the complete dashboard with 100 lead credits per UTC day, verified-only mode, outreach drafts, and manual or automatic Sheet sync.</p><ul class="text-xs text-slate-300 space-y-2 mt-5"><li><i class="fa-solid fa-check text-emerald-400 mr-2"></i>20–50 lead targets</li><li><i class="fa-solid fa-check text-emerald-400 mr-2"></i>Public phone and email verification</li><li><i class="fa-solid fa-check text-emerald-400 mr-2"></i>Google Sheets export</li></ul><button @click="showAuthModal = true; authMode = 'signup'" class="w-full mt-6 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-3 text-sm font-bold text-cyan-200 hover:bg-cyan-400/20 transition">Create free account</button></div>
-                <div class="rounded-3xl border border-violet-400/30 bg-gradient-to-br from-violet-950/50 via-indigo-950/30 to-slate-900/90 p-7 shadow-xl relative overflow-hidden"><div class="absolute right-5 top-5 rounded-full bg-violet-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-violet-200">Best control</div><p class="text-xs uppercase tracking-wider text-violet-300 font-semibold">BYOK upgrade</p><h3 class="text-3xl font-extrabold text-white mt-2">From $3 <span class="text-sm font-medium text-slate-500">/ month</span></h3><p class="text-sm text-slate-400 leading-7 mt-3">Use your own Google Maps, Gemini, and enrichment keys. You pay provider costs directly plus a small NexusLeads platform fee.</p><div class="grid grid-cols-3 gap-2 mt-5"><div class="rounded-xl border border-violet-400/20 bg-slate-950/60 p-3 text-center"><p class="text-lg font-extrabold text-white">$3</p><p class="text-[10px] text-slate-500">1 month</p></div><div class="rounded-xl border border-violet-400/20 bg-slate-950/60 p-3 text-center"><p class="text-lg font-extrabold text-white">$5</p><p class="text-[10px] text-slate-500">2 months</p></div><div class="rounded-xl border border-violet-400/20 bg-slate-950/60 p-3 text-center"><p class="text-lg font-extrabold text-white">$10</p><p class="text-[10px] text-slate-500">5 months</p></div></div><a href="https://www.paypal.me/Connectwithbayezid" target="_blank" rel="noopener noreferrer" class="w-full mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-[#0070ba] px-4 py-3 text-sm font-bold text-white shadow-lg shadow-sky-950/40 hover:bg-[#005ea6] transition"><i class="fa-brands fa-paypal text-lg"></i> Pay with PayPal</a><p class="text-[11px] text-slate-500 text-center mt-3">Platform fee only. Configuration available in dashboard after login.</p></div>
-                <div class="rounded-3xl border border-amber-400/30 bg-gradient-to-br from-amber-950/40 via-indigo-950/30 to-slate-900/90 p-7 shadow-xl"><div class="flex items-center justify-between"><p class="text-xs uppercase tracking-wider text-amber-300 font-semibold">Managed Pro</p><i class="fa-solid fa-crown text-amber-300"></i></div><h3 class="text-3xl font-extrabold text-white mt-2">$169 <span class="text-sm font-medium text-slate-500">/ month</span></h3><p class="text-sm text-slate-400 leading-7 mt-3">Managed API access, expanded usage, priority workflow support, and the complete NexusLeads enrichment pipeline.</p><ul class="text-xs text-slate-300 space-y-2 mt-5"><li><i class="fa-solid fa-check text-emerald-400 mr-2"></i>Managed provider capacity</li><li><i class="fa-solid fa-check text-emerald-400 mr-2"></i>Unlimited plan workflow</li><li><i class="fa-solid fa-check text-emerald-400 mr-2"></i>Priority support</li></ul><a href="https://www.paypal.me/Connectwithbayezid" target="_blank" rel="noopener noreferrer" class="w-full mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-[#0070ba] px-4 py-3 text-sm font-bold text-white shadow-lg shadow-sky-950/40 hover:bg-[#005ea6] transition"><i class="fa-brands fa-paypal text-lg"></i> Pay with PayPal</a><p class="text-[11px] text-slate-500 text-center mt-3">Secure redirect: paypal.me/Connectwithbayezid</p></div>
+                <div class="rounded-3xl border border-violet-400/30 bg-gradient-to-br from-violet-950/50 via-indigo-950/30 to-slate-900/90 p-7 shadow-xl relative overflow-hidden"><div class="absolute right-5 top-5 rounded-full bg-violet-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-violet-200">Best control</div><p class="text-xs uppercase tracking-wider text-violet-300 font-semibold">BYOK upgrade</p><h3 class="text-3xl font-extrabold text-white mt-2">From $3 <span class="text-sm font-medium text-slate-500">/ month</span></h3><p class="text-sm text-slate-400 leading-7 mt-3">Use your own Google Maps, Gemini, and enrichment keys. You pay provider costs directly plus a small NexusLeads platform fee.</p><div class="grid grid-cols-3 gap-2 mt-5"><div class="rounded-xl border border-violet-400/20 bg-slate-950/60 p-3 text-center"><p class="text-lg font-extrabold text-white">$3</p><p class="text-[10px] text-slate-500">1 month</p></div><div class="rounded-xl border border-violet-400/20 bg-slate-950/60 p-3 text-center"><p class="text-lg font-extrabold text-white">$5</p><p class="text-[10px] text-slate-500">2 months</p></div><div class="rounded-xl border border-violet-400/20 bg-slate-950/60 p-3 text-center"><p class="text-lg font-extrabold text-white">$10</p><p class="text-[10px] text-slate-500">5 months</p></div></div><a href="https://www.paypal.me/Connectwithbayezid" target="_blank" rel="noopener noreferrer" onclick="nexusTrack('begin_checkout', { method: 'paypal', placement: 'pricing' })" class="w-full mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-[#0070ba] px-4 py-3 text-sm font-bold text-white shadow-lg shadow-sky-950/40 hover:bg-[#005ea6] transition"><i class="fa-brands fa-paypal text-lg"></i> Pay with PayPal</a><p class="text-[11px] text-slate-500 text-center mt-3">Platform fee only. Configuration available in dashboard after login.</p></div>
+                <div class="rounded-3xl border border-amber-400/30 bg-gradient-to-br from-amber-950/40 via-indigo-950/30 to-slate-900/90 p-7 shadow-xl"><div class="flex items-center justify-between"><p class="text-xs uppercase tracking-wider text-amber-300 font-semibold">Managed Pro</p><i class="fa-solid fa-crown text-amber-300"></i></div><h3 class="text-3xl font-extrabold text-white mt-2">$169 <span class="text-sm font-medium text-slate-500">/ month</span></h3><p class="text-sm text-slate-400 leading-7 mt-3">Managed API access, expanded usage, priority workflow support, and the complete NexusLeads enrichment pipeline.</p><ul class="text-xs text-slate-300 space-y-2 mt-5"><li><i class="fa-solid fa-check text-emerald-400 mr-2"></i>Managed provider capacity</li><li><i class="fa-solid fa-check text-emerald-400 mr-2"></i>Unlimited plan workflow</li><li><i class="fa-solid fa-check text-emerald-400 mr-2"></i>Priority support</li></ul><a href="https://www.paypal.me/Connectwithbayezid" target="_blank" rel="noopener noreferrer" onclick="nexusTrack('begin_checkout', { method: 'paypal', placement: 'pricing' })" class="w-full mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-[#0070ba] px-4 py-3 text-sm font-bold text-white shadow-lg shadow-sky-950/40 hover:bg-[#005ea6] transition"><i class="fa-brands fa-paypal text-lg"></i> Pay with PayPal</a><p class="text-[11px] text-slate-500 text-center mt-3">Secure redirect: paypal.me/Connectwithbayezid</p></div>
             </div>
         </section>
 
@@ -757,6 +773,9 @@
                 activity: [{ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: 'Dashboard ready for a new research run.' }],
                 metrics: { found: 0, verified: 0, emails: 0, sheet: 'Waiting' },
                 apiBase: (document.querySelector('meta[name="nexus-api-base"]')?.content || window.NEXUS_API_BASE || 'http://localhost:8787').replace(/\/$/, ''),
+                track(eventName, parameters = {}) {
+                    if (typeof window.nexusTrack === 'function') window.nexusTrack(eventName, parameters);
+                },
                 async postJson(path, payload) {
                     const headers = { 'Content-Type': 'application/json', 'X-Nexus-Client-ID': this.clientId };
                     if (this.authToken) headers['Authorization'] = 'Bearer ' + this.authToken;
@@ -796,6 +815,7 @@
                     this.stage = 1;
                     this.metrics = { found: 0, verified: 0, emails: 0, sheet: this.autoPushEnabled ? 'Preparing' : 'Manual mode' };
                     const runLabel = this.prompt.trim() || `${this.keyword} near ${this.location}`;
+                    this.track('lead_search_started', { mode: this.prompt.trim() ? 'ai_prompt' : 'keyword_location', max_results: Number(this.maxResults), verified_only: this.verifiedOnly, auto_push: this.autoPushEnabled });
                     const payload = {
                         prompt: this.prompt,
                         outreach_style: this.outreachStyle,
@@ -847,6 +867,7 @@
                         }
                         const verificationMessage = this.verifiedOnly && this.leads.length < Number(this.maxResults) ? ` Verified results available: ${verified.length}; uncheck “Verified leads only” if you want all public listings.` : '';
                         this.message = sheetMessage + verificationMessage;
+                        this.track('lead_search_completed', { leads_found: this.leads.length, verified_leads: verified.length, emails_found: this.metrics.emails, sheet_status: this.metrics.sheet, outreach_drafts: this.generateOutreach });
                         if (this.leads.length > 0) this.maybeShowSuccessPopup();
                     } catch (err) {
                         console.error(err);
@@ -855,12 +876,14 @@
                         this.metrics.sheet = 'Error';
                         this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: err.message || 'Connection error with the Cloudflare backend.' });
                         this.message = err.message || 'Connection error with the Cloudflare backend.';
+                        this.track('lead_search_failed', { error_type: err?.message ? 'backend_or_validation' : 'unknown' });
                     } finally {
                         this.loading = false;
                         if (this.progress >= 90) this.progress = 100;
                     }
                 },
                 async initApp() {
+                    this.track('app_open', { page: 'nexusleads_home' });
                     this.loadSheetConfig();
                     let cid = localStorage.getItem('nexusleads-client-id');
                     if (!cid) {
@@ -950,6 +973,7 @@
                         const data = await res.json();
                         if (!res.ok || !data.success) throw new Error(data.error || 'Newsletter signup failed.');
                         this.newsletterStatus = data.message || 'You are subscribed.';
+                        this.track('newsletter_subscribe', { source: this.showNewsletterPopup ? 'newsletter_popup' : 'successful_collection_popup' });
                         this.newsletterEmail = '';
                         if (this.showNewsletterPopup) this.dismissNewsletterPopup();
                     } catch (error) {
@@ -970,6 +994,7 @@
                         this.showReviewModal = false;
                         this.reviewMessage = '';
                         this.message = 'Thank you. Your review is now visible in Client Voice.';
+                        this.track('review_submitted', { rating: Number(this.reviewRating) });
                     } catch (error) {
                         this.reviewError = error.message;
                     } finally {
@@ -1009,9 +1034,11 @@
                         this.showAuthModal = false;
                         this.authPassword = '';
                         this.message = 'Successfully logged in as ' + data.user.email;
+                        this.track(this.authMode === 'login' ? 'login' : 'sign_up', { plan: data.user.plan || 'free', auth_method: 'email_password' });
                         await this.initApp();
                     } catch (err) {
                         this.authError = err.message;
+                        this.track('auth_failed', { mode: this.authMode, reason: 'request_rejected' });
                     } finally {
                         this.authLoading = false;
                     }
@@ -1028,6 +1055,7 @@
                     this.authToken = '';
                     this.currentUser = null;
                     localStorage.removeItem('nexusleads-token');
+                    this.track('logout', {});
                     this.message = 'Logged out successfully.';
                 },
                 async checkSheetAccess() {
@@ -1048,9 +1076,11 @@
                         if (res.ok && data.verified) {
                             this.serviceAccountEmail = data.service_account_email || this.serviceAccountEmail;
                             alert('Success! Google Sheet is accessible by ' + this.serviceAccountEmail + '.');
+                            this.track('sheet_access_verified', { verified: true });
                         } else {
                             this.serviceAccountEmail = data.service_account_email || this.serviceAccountEmail;
                             alert(data.error || 'Sheet not accessible. Please add ' + this.serviceAccountEmail + ' as an Editor.');
+                            this.track('sheet_access_verified', { verified: false });
                         }
                     } catch (err) {
                         alert('Could not verify sheet access: ' + err.message);
@@ -1076,6 +1106,7 @@
                             this.serviceAccountEmail = data.service_account_email || this.serviceAccountEmail;
                             alert('Your credentials were saved and encrypted securely. Share your Sheet with ' + this.serviceAccountEmail + ' as Editor.');
                             this.showByokModal = false;
+                            this.track('byok_credentials_saved', { maps_key_provided: Boolean(this.byokMapsKey), sheets_credentials_provided: Boolean(this.byokServiceJson) });
                             this.byokMapsKey = '';
                             this.byokServiceJson = '';
                         } else {
@@ -1139,9 +1170,11 @@
                         if (!response.ok || !data.success) throw new Error(data.error || data.sheets?.reason || 'Selected sync failed.');
                         this.metrics.sheet = 'Synced';
                         this.message = `Selected leads synced: ${data.count} lead(s) to Leads and Outreach.`;
+                        this.track('selected_leads_synced', { lead_count: Number(data.count) || selected.length });
                         this.activity.unshift({ time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}), text: this.message });
                     } catch (error) {
                         this.message = error.message || 'Selected sync failed.';
+                        this.track('selected_leads_sync_failed', { lead_count: selected.length });
                         this.metrics.sheet = 'Failed';
                     } finally {
                         this.manualPushLoading = false;
