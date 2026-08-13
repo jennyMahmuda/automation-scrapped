@@ -1,0 +1,37 @@
+name: Enable Paid User for BYOK
+
+on:
+  workflow_dispatch:
+    inputs:
+      user_email:
+        description: 'User email address to activate as paid BYOK'
+        required: true
+        type: string
+
+jobs:
+  enable-user:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Cloudflare Admin API
+        env:
+          USER_EMAIL: ${{ inputs.user_email }}
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+        run: |
+          echo "Activating paid BYOK status for user: $USER_EMAIL"
+          response=$(curl -sS -w "\nHTTP_STATUS:%{http_code}" -X POST \
+            "https://nexusleads-api.mahmudajenny6.workers.dev/api/admin/enable-paid" \
+            -H "Content-Type: application/json" \
+            -H "X-Admin-Secret: $ADMIN_SECRET" \
+            -d "{\"email\":\"$USER_EMAIL\"}")
+          
+          http_status=$(echo "$response" | grep "HTTP_STATUS" | cut -d':' -f2)
+          body=$(echo "$response" | sed '/HTTP_STATUS/d')
+          
+          echo "Response Status: $http_status"
+          echo "Response Body: $body"
+          
+          if [ "$http_status" -ne 200 ]; then
+            echo "Error: Failed to enable paid user."
+            exit 1
+          fi
+          echo "Successfully activated $USER_EMAIL for BYOK!"

@@ -498,6 +498,20 @@ function leadApp() {
                         this.message = error.message || 'Could not clear account data.';
                     }
                 },
+                openByok() {
+                    if (!this.currentUser) {
+                        this.authMode = 'login';
+                        this.showAuthModal = true;
+                        this.message = 'Please log in to configure BYOK API keys.';
+                        return;
+                    }
+                    if (!this.currentUser.is_paid) {
+                        this.showPricingModal = true;
+                        this.message = 'BYOK API configuration requires an activated paid plan ($3, $5, or $10 via PayPal at paypal.me/Connectwithbayezid). Once paid, the admin will enable your account.';
+                        return;
+                    }
+                    this.showByokModal = true;
+                },
                 loadSheetConfig() {
                     try {
                         const saved = JSON.parse(localStorage.getItem('nexusleads-sheet-config') || '{}');

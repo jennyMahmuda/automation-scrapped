@@ -159,7 +159,7 @@
                     <div class="hidden sm:flex items-center gap-2"><button @click="showAuthModal = true; authMode = 'login'" class="px-3 py-2 rounded-full text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition">Log In</button><button @click="showAuthModal = true; authMode = 'signup'" class="px-3 py-2 rounded-full text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-white transition">Sign Up</button></div>
                 </template>
                 <button @click="showPricingModal = true" class="hidden md:inline-flex items-center px-3 py-2 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/20 hover:bg-amber-500/20 transition"><i class="fa-solid fa-bolt mr-1.5"></i><span x-text="credits.used + ' / ' + credits.limit + ' Leads'"></span></button>
-                <button x-show="authToken" @click="showByokModal = true" class="hidden md:inline-flex items-center px-3 py-2 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 hover:bg-indigo-500/20 transition"><i class="fa-solid fa-key mr-1.5"></i> Maps BYOK</button>
+                <button x-show="authToken" @click="openByok()" class="hidden md:inline-flex items-center px-3 py-2 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 hover:bg-indigo-500/20 transition"><i class="fa-solid fa-key mr-1.5"></i> Maps BYOK</button>
                 <button @click="mobileMenu = !mobileMenu" class="lg:hidden h-10 w-10 rounded-xl border border-slate-700 bg-slate-900 text-slate-200" :aria-expanded="mobileMenu" aria-label="Toggle navigation"><i class="fa-solid" :class="mobileMenu ? 'fa-xmark' : 'fa-bars'"></i></button>
             </div>
         </div>

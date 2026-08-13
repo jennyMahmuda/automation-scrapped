@@ -239,10 +239,11 @@ async function sessionUser(request, env) {
   const token = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
   if (!token) return null;
   const sessionId = await sha256Hex(`nexusleads-session-v1:${token}`);
-  const row = await env.NEXUS_DB.prepare("SELECT u.id, u.email, u.plan, u.email_verified, s.expires_at FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.id = ? AND s.expires_at > ?").bind(sessionId, Date.now()).first();
+  await env.NEXUS_DB.prepare("ALTER TABLE users ADD COLUMN is_paid INTEGER NOT NULL DEFAULT 0").run().catch(() => null);
+  const row = await env.NEXUS_DB.prepare("SELECT u.id, u.email, u.plan, u.is_paid, u.email_verified, s.expires_at FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.id = ? AND s.expires_at > ?").bind(sessionId, Date.now()).first();
   if (!row) return null;
   await env.NEXUS_DB.prepare("UPDATE sessions SET last_seen_at = ? WHERE id = ?").bind(new Date().toISOString(), sessionId).run().catch(() => null);
-  return { id: row.id, email: row.email, plan: row.plan, email_verified: Boolean(row.email_verified) };
+  return { id: row.id, email: row.email, plan: row.plan, is_paid: Boolean(row.is_paid), email_verified: Boolean(row.email_verified) };
 }
 
 async function createSession(userId, env) {
@@ -441,6 +442,7 @@ async function handleLogout(request, env) {
 async function handleCredentialStatus(request, env) {
   const user = await sessionUser(request, env);
   if (!user) return json({ success: false, error: "Authentication required" }, 401);
+  if (!user.is_paid) return json({ success: false, code: "PAYMENT_REQUIRED", error: "BYOK API configuration requires an activated paid plan. Please complete payment or contact admin." }, 403);
   const credentials = await userCredentials(user.id, env);
   return json({
     success: true,
@@ -458,6 +460,7 @@ async function handleCredentialStatus(request, env) {
 async function handleCredentialSave(request, env) {
   const user = await sessionUser(request, env);
   if (!user) return json({ success: false, error: "Authentication required" }, 401);
+  if (!user.is_paid) return json({ success: false, code: "PAYMENT_REQUIRED", error: "BYOK API configuration requires an activated paid plan. Please complete payment or contact admin." }, 403);
   if (!env.NEXUS_DB || !env.NEXUS_CREDENTIALS_KEY) return json({ success: false, error: "Secure credential storage is not configured" }, 503);
   const body = await request.json().catch(() => null);
   const existing = await env.NEXUS_DB.prepare("SELECT maps_key_ciphertext, maps_key_last4, sheets_json_ciphertext, sheets_account_email, gemini_key_ciphertext, created_at FROM api_credentials WHERE user_id = ?").bind(user.id).first();
@@ -515,6 +518,36 @@ async function handleCredentialClear(request, env) {
   if (!env.NEXUS_DB) return json({ success: false, error: "Database is not configured" }, 503);
   await env.NEXUS_DB.prepare("DELETE FROM api_credentials WHERE user_id = ?").bind(user.id).run();
   return json({ success: true, cleared: true, message: "Your encrypted BYOK credentials were removed." });
+}
+
+async function handleAdminEnablePaid(request, env) {
+  const authHeader = request.headers.get("X-Admin-Secret") || request.headers.get("Authorization") || "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : authHeader;
+  const adminSecret = env.ADMIN_SECRET || "nexusleads-admin-2026-secret";
+  if (!token || token !== adminSecret) {
+    return json({ success: false, error: "Unauthorized admin secret" }, 401);
+  }
+  const body = await request.json().catch(() => null);
+  const email = normalizeEmail(body?.email);
+  if (!email) return json({ success: false, error: "Valid target user email is required" }, 400);
+
+  if (!env.NEXUS_DB) return json({ success: false, error: "Database not configured" }, 503);
+  await env.NEXUS_DB.prepare("ALTER TABLE users ADD COLUMN is_paid INTEGER NOT NULL DEFAULT 0").run().catch(() => null);
+
+  const user = await env.NEXUS_DB.prepare("SELECT id, email, plan, is_paid FROM users WHERE email = ?").bind(email).first();
+  if (!user) return json({ success: false, error: `User with email ${email} not found. They must sign up first.` }, 404);
+
+  const now = new Date().toISOString();
+  await env.NEXUS_DB.prepare("UPDATE users SET is_paid = 1, plan = 'paid', updated_at = ? WHERE id = ?").bind(now, user.id).run();
+
+  // Send admin notification
+  await notifyAdmin("BYOK Paid Activation", { user_email: email, status: "enabled", triggered_by: "manual_admin_action" }, env).catch(() => null);
+
+  return json({
+    success: true,
+    message: `User ${email} has been successfully activated as a paid BYOK user.`,
+    user: { id: user.id, email, is_paid: true, plan: "paid" }
+  });
 }
 
 function json(data, status = 200, extraHeaders = {}) {
@@ -1193,6 +1226,7 @@ export default {
       else if (request.method === "POST" && url.pathname === "/api/newsletter") response = await handleNewsletterSubscribe(request, env);
       else if (request.method === "POST" && url.pathname === "/api/account/credentials") response = await handleCredentialSave(request, env);
       else if (request.method === "DELETE" && url.pathname === "/api/account/credentials") response = await handleCredentialClear(request, env);
+      else if (request.method === "POST" && url.pathname === "/api/admin/enable-paid") response = await handleAdminEnablePaid(request, env);
       else if (request.method === "POST" && url.pathname === "/api/account/sheet-check") response = await handleSheetAccessCheck(request, env);
       else if (request.method === "POST" && url.pathname === "/api/discover") response = await handleDiscover(request, env);
       else if (request.method === "POST" && url.pathname === "/api/enrich") response = await handleEnrich(request, env);
