@@ -361,7 +361,7 @@ async function notifyAdmin(event, data, env) {
   try {
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${resendKey}` },
+      headers: { "Content-Type": "application/json", "Accept": "application/json", "User-Agent": "NexusLeads-Notifier/1.0", "Authorization": `Bearer ${resendKey}` },
       body: JSON.stringify({
         from: "NexusLeads <onboarding@resend.dev>",
         to: [adminEmail],
