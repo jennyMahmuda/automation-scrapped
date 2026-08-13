@@ -16,6 +16,7 @@ function leadApp() {
                 manualPushLoading: false,
                 showPricingModal: false,
                 showByokModal: false,
+                showByokSuccess: false,
                 showAuthModal: false,
                 showSuccessPopup: false,
                 showNewsletterPopup: false,
@@ -398,8 +399,15 @@ function leadApp() {
                         const data = await res.json();
                         if (res.ok && data.success) {
                             this.serviceAccountEmail = data.service_account_email || this.serviceAccountEmail;
-                            alert('Your credentials were saved and encrypted securely. Share your Sheet with ' + this.serviceAccountEmail + ' as Editor.');
-                            this.showByokModal = false;
+                            if (data.credentials) {
+                                this.credits.byok = {
+                                    maps: Boolean(data.credentials.maps_configured),
+                                    gemini: Boolean(data.credentials.gemini_configured),
+                                    service_account: Boolean(data.credentials.sheets_configured)
+                                };
+                            }
+                            this.showByokSuccess = true;
+                            setTimeout(() => { this.showByokSuccess = false; }, 4000);
                             this.track('byok_credentials_saved', { 
                                 maps_key_provided: Boolean(this.byokMapsKey), 
                                 gemini_key_provided: Boolean(this.byokGeminiKey),

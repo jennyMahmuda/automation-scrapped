@@ -427,13 +427,24 @@
                     Provide your own API keys for unlimited searches with zero markup. Keys are securely encrypted with AES-256-GCM on Cloudflare backend.
                 </p>
 
+                <!-- Success Box -->
+                <div x-show="showByokSuccess" x-transition class="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4 flex items-center gap-3">
+                    <div class="h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-lg">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-bold text-emerald-300">Configuration Successful ✅</p>
+                        <p class="text-[10px] text-emerald-400/80">Your API keys are securely configured and masked.</p>
+                    </div>
+                </div>
+
                 <!-- Google Maps Key -->
                 <div class="bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800">
                     <div class="flex items-center justify-between mb-1.5">
                         <div class="flex items-center gap-2">
                             <label class="block text-xs font-bold text-slate-200">Google Maps API Key (New)</label>
-                            <span x-show="credits.byok?.maps" class="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider border border-emerald-500/30">Connected</span>
-                            <span x-show="!credits.byok?.maps" class="text-[9px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider border border-slate-700">Not Set</span>
+                            <span x-show="credits.byok?.maps" class="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider border border-emerald-500/30 flex items-center gap-1"><i class="fa-solid fa-check text-[8px]"></i> Connected</span>
+                            <span x-show="!credits.byok?.maps" class="text-[9px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider border border-slate-700">Blank Box</span>
                         </div>
                         <a href="https://console.cloud.google.com/google/maps-apis/credentials" target="_blank" rel="noopener noreferrer" class="text-[11px] text-cyan-300 hover:text-cyan-200 underline flex items-center gap-1">
                             Get Google Maps Key <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
@@ -447,8 +458,8 @@
                     <div class="flex items-center justify-between mb-1.5">
                         <div class="flex items-center gap-2">
                             <label class="block text-xs font-bold text-slate-200">Gemini API Key (AI Outreach)</label>
-                            <span x-show="credits.byok?.gemini" class="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider border border-emerald-500/30">Connected</span>
-                            <span x-show="!credits.byok?.gemini" class="text-[9px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider border border-slate-700">Not Set</span>
+                            <span x-show="credits.byok?.gemini" class="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider border border-emerald-500/30 flex items-center gap-1"><i class="fa-solid fa-check text-[8px]"></i> Connected</span>
+                            <span x-show="!credits.byok?.gemini" class="text-[9px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider border border-slate-700">Blank Box</span>
                         </div>
                         <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="text-[11px] text-cyan-300 hover:text-cyan-200 underline flex items-center gap-1">
                             Get Gemini Key <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
@@ -462,8 +473,8 @@
                     <div class="flex items-center justify-between mb-1.5">
                         <div class="flex items-center gap-2">
                             <label class="block text-xs font-bold text-slate-200">Google Service Account JSON</label>
-                            <span x-show="credits.byok?.service_account" class="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider border border-emerald-500/30">Connected</span>
-                            <span x-show="!credits.byok?.service_account" class="text-[9px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider border border-slate-700">Not Set</span>
+                            <span x-show="credits.byok?.service_account" class="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider border border-emerald-500/30 flex items-center gap-1"><i class="fa-solid fa-check text-[8px]"></i> Connected</span>
+                            <span x-show="!credits.byok?.service_account" class="text-[9px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider border border-slate-700">Blank Box</span>
                         </div>
                         <a href="https://console.cloud.google.com/iam-admin/serviceaccounts" target="_blank" rel="noopener noreferrer" class="text-[11px] text-cyan-300 hover:text-cyan-200 underline flex items-center gap-1">
                             Open Service Accounts <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>

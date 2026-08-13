@@ -1163,14 +1163,14 @@ async function handleDiscover(request, env) {
 async function handleUsage(request, env) {
   const user = await sessionUser(request, env);
   if (!user) return json({ success: false, code: "AUTH_REQUIRED", error: "Please log in to view your daily credits" }, 401);
-  const userEnv = await effectiveUserEnv(user, env);
+  const userCreds = await userCredentials(user.id, env);
   const usage = await readDailyCredits(request, { client_id: user.id }, env);
   const credits = {
     ...usage.credits,
     byok: {
-      maps: Boolean(userEnv.GOOGLE_MAP_API_NEW),
-      gemini: Boolean(userEnv.GEMINI_API_KEY || userEnv.GEMINI_OUTREACH_API_KEY),
-      service_account: Boolean(userEnv.GOOGLE_SERVICE_ACCOUNT_JSON || userEnv.GOOGLESERVICES_JSON)
+      maps: Boolean(userCreds.mapsApiKey),
+      gemini: Boolean(userCreds.geminiApiKey),
+      service_account: Boolean(userCreds.sheetsJson)
     }
   };
   return json({ success: true, user, credits, pricing: calculatePricingEstimate() });
