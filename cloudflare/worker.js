@@ -359,7 +359,7 @@ async function notifyAdmin(event, data, env) {
     return;
   }
   try {
-    await fetch("https://api.resend.com/emails", {
+    const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${resendKey}` },
       body: JSON.stringify({
@@ -369,8 +369,16 @@ async function notifyAdmin(event, data, env) {
         text: `Event: ${event}\nTime: ${new Date().toISOString()}\nDetails:\n${JSON.stringify(data, null, 2)}\n\n---\nSecurely sent from NexusLeads Backend.`
       })
     });
+    const responseText = await response.text().catch(() => "");
+    if (!response.ok) {
+      console.error("Admin notification rejected by Resend:", response.status, responseText.slice(0, 500));
+      return { success: false, status: response.status };
+    }
+    console.log("Admin notification accepted by Resend:", response.status);
+    return { success: true, status: response.status };
   } catch (e) {
-    console.error("Admin notification failed:", e);
+    console.error("Admin notification failed:", e?.message || e);
+    return { success: false, status: 0 };
   }
 }
 
