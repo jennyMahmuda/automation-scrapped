@@ -351,6 +351,29 @@ async function handleNewsletterSubscribe(request, env) {
   return json({ success: true, message: "You are subscribed to NexusLeads updates." });
 }
 
+async function notifyAdmin(event, data, env) {
+  const adminEmail = env.ADMIN_NOTIFICATION_EMAIL;
+  const resendKey = env.RESEND_API_KEY;
+  if (!resendKey || !adminEmail) {
+    console.warn("Admin notification skipped: RESEND_API_KEY or ADMIN_NOTIFICATION_EMAIL missing.");
+    return;
+  }
+  try {
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${resendKey}` },
+      body: JSON.stringify({
+        from: "NexusLeads <onboarding@resend.dev>",
+        to: [adminEmail],
+        subject: `NexusLeads Alert: ${event}`,
+        text: `Event: ${event}\nTime: ${new Date().toISOString()}\nDetails:\n${JSON.stringify(data, null, 2)}\n\n---\nSecurely sent from NexusLeads Backend.`
+      })
+    });
+  } catch (e) {
+    console.error("Admin notification failed:", e);
+  }
+}
+
 async function handleSignup(request, env) {
   if (!env.NEXUS_DB) return json({ success: false, error: "Account database is not configured" }, 503);
   const body = await request.json().catch(() => null);
@@ -363,6 +386,10 @@ async function handleSignup(request, env) {
   const now = new Date().toISOString();
   const passwordHash = await hashPassword(password);
   await env.NEXUS_DB.prepare("INSERT INTO users (id, email, password_hash, email_verified, plan, created_at, updated_at) VALUES (?, ?, ?, 1, 'free', ?, ?)").bind(id, email, passwordHash, now, now).run();
+  
+  // Admin Notification: New User
+  await notifyAdmin("New User Registration", { user_id: id, email: email, plan: "free" }, env).catch(() => null);
+  
   const token = await createSession(id, env);
   return json({ success: true, token, user: { id, email, plan: "free", email_verified: true } });
 }
@@ -1081,6 +1108,10 @@ async function handleExport(request, env) {
   if (!user) return json({ success: false, code: "AUTH_REQUIRED", error: "Please log in before syncing leads" }, 401);
   const sheets = await appendToGoogleSheet(leads, body, await effectiveUserEnv(user, env)).catch((error) => ({ exported: false, reason: error.message }));
   if (!sheets.exported) return json({ success: false, error: sheets.reason || "Selected lead sync failed", sheets }, 502);
+
+  // Admin Notification: Successful Lead Sync (Regeneration/Usage)
+  await notifyAdmin("Lead Sync Success", { user_email: user.email, count: leads.length, sheet_id: body.sheet_id }, env).catch(() => null);
+
   return json({ success: true, count: leads.length, sheets, mode: "manual_selected" });
 }
 
