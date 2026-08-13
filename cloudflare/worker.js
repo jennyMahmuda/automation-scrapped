@@ -401,6 +401,10 @@ async function handleLogin(request, env) {
   const password = String(body?.password || "");
   const user = await env.NEXUS_DB.prepare("SELECT id, email, password_hash, plan, email_verified FROM users WHERE email = ?").bind(email).first();
   if (!user || !(await verifyPassword(password, user.password_hash))) return json({ success: false, error: "Invalid email or password" }, 401);
+  
+  // Admin Notification: User Login
+  await notifyAdmin("User Login", { user_id: user.id, email: user.email, plan: user.plan }, env).catch(() => null);
+  
   const token = await createSession(user.id, env);
   return json({ success: true, token, user: { id: user.id, email: user.email, plan: user.plan, email_verified: Boolean(user.email_verified) } });
 }
