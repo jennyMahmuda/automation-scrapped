@@ -103,7 +103,7 @@
                 <div x-data="{ open: false }" class="relative">
                     <button @click="open = !open" @click.outside="open = false" class="inline-flex items-center gap-2 rounded-xl px-3 py-2.5 hover:bg-white/5 hover:text-white transition"><span>Product</span><i class="fa-solid fa-chevron-down text-[9px]" :class="open ? 'rotate-180' : ''"></i></button>
                     <div x-show="open" x-transition.origin.top.left class="absolute left-0 top-12 w-64 rounded-2xl border border-slate-700 bg-slate-900/95 p-2 shadow-2xl shadow-black/30" style="display:none">
-                        <a href="#operations" class="block rounded-xl px-3 py-3 hover:bg-cyan-400/10"><strong class="block text-white">Try NexusLeads free</strong><span class="text-[11px] text-slate-500">Run a verified local search</span></a>
+                        <a href="#operations" @click="openDashboard($event)" class="block rounded-xl px-3 py-3 hover:bg-cyan-400/10"><strong class="block text-white">Try NexusLeads free</strong><span class="text-[11px] text-slate-500">Run a verified local search</span></a>
                         <a href="#how-it-works" class="block rounded-xl px-3 py-3 hover:bg-cyan-400/10"><strong class="block text-white">How it works</strong><span class="text-[11px] text-slate-500">Discover, verify, and export</span></a>
                         <a href="#use-cases" class="block rounded-xl px-3 py-3 hover:bg-cyan-400/10"><strong class="block text-white">Use cases</strong><span class="text-[11px] text-slate-500">For agencies, freelancers, and teams</span></a>
                         <a href="#pricing" class="block rounded-xl px-3 py-3 hover:bg-cyan-400/10"><strong class="block text-white">Pricing</strong><span class="text-[11px] text-slate-500">Free, BYOK, and managed Pro</span></a>
@@ -135,7 +135,7 @@
         </div>
         <div x-show="mobileMenu" x-transition class="lg:hidden border-t border-slate-800 bg-slate-950 px-4 py-4" style="display:none">
             <div class="grid gap-1 text-sm">
-                <a @click="mobileMenu = false" href="#operations" class="rounded-xl px-3 py-3 font-semibold text-white hover:bg-white/5">Try NexusLeads free</a>
+                <a @click="mobileMenu = false; openDashboard($event)" href="#operations" class="rounded-xl px-3 py-3 font-semibold text-white hover:bg-white/5">Try NexusLeads free</a>
                 <a @click="mobileMenu = false" href="#how-it-works" class="rounded-xl px-3 py-3 text-slate-300 hover:bg-white/5">How it works</a>
                 <a @click="mobileMenu = false" href="#use-cases" class="rounded-xl px-3 py-3 text-slate-300 hover:bg-white/5">Use cases</a>
                 <a @click="mobileMenu = false" href="#prompt-library" class="rounded-xl px-3 py-3 text-slate-300 hover:bg-white/5">Prompt library</a>
@@ -162,7 +162,7 @@
                     <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.05] mb-5 bg-gradient-to-r from-white via-indigo-100 to-cyan-300 bg-clip-text text-transparent">Find better prospects. Verify faster. Reach out personally.</h1>
                     <p class="text-slate-300 text-base sm:text-lg leading-8 max-w-2xl">NexusLeads turns a keyword and location into verified public business data, social profiles, and personalized Email and WhatsApp drafts—then organizes everything in clean Google Sheets tabs.</p>
                     <div class="flex flex-col sm:flex-row gap-3 mt-7">
-                        <a href="#operations" class="inline-flex justify-center items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 px-5 py-3.5 text-sm font-bold text-white shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 transition"><i class="fa-solid fa-wand-magic-sparkles"></i> Explore the live tool</a>
+                        <a href="#operations" @click="openDashboard($event)" class="inline-flex justify-center items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 px-5 py-3.5 text-sm font-bold text-white shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 transition"><i class="fa-solid fa-wand-magic-sparkles"></i> Explore the live tool</a>
                         <a href="#how-it-works" class="inline-flex justify-center items-center gap-2 rounded-xl border border-slate-700 bg-slate-950/50 px-5 py-3.5 text-sm font-semibold text-slate-200 hover:border-cyan-400/40 transition"><i class="fa-solid fa-circle-play"></i> See how it works</a>
                     </div>
                     <div class="flex flex-wrap gap-x-5 gap-y-2 mt-7 text-xs text-slate-400">
@@ -471,7 +471,7 @@
                 <p class="text-xs uppercase tracking-[0.25em] text-cyan-300 font-semibold">The NexusLeads method</p>
                 <h2 class="text-3xl font-extrabold text-white mt-2">A calm workflow from idea to outreach.</h2>
                 <p class="text-sm text-slate-400 leading-7 mt-4">Every search stays understandable: discover public businesses, enrich only what is needed, verify the contact signal, then send organized rows to your Sheet.</p>
-                <a href="#operations" class="inline-flex items-center gap-2 mt-6 text-sm font-semibold text-cyan-300 hover:text-cyan-200 transition">Start with the live dashboard <i class="fa-solid fa-arrow-down"></i></a>
+                <a href="#operations" @click="openDashboard($event)" class="inline-flex items-center gap-2 mt-6 text-sm font-semibold text-cyan-300 hover:text-cyan-200 transition">Start with the live dashboard <i class="fa-solid fa-arrow-down"></i></a>
             </div>
             <div class="grid sm:grid-cols-2 gap-3">
                 <div class="rounded-2xl border border-slate-800 bg-slate-900/75 p-5"><span class="text-cyan-300 text-xl font-extrabold">01</span><h3 class="font-bold text-white mt-3">Describe the target</h3><p class="text-xs text-slate-400 leading-6 mt-2">Use keyword + location or an AI research prompt to define the market you want to explore.</p></div>
@@ -500,7 +500,7 @@
         <section id="proof" class="mb-12 scroll-mt-24">
             <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-5">
                 <div><p class="text-xs uppercase tracking-[0.25em] text-emerald-300 font-semibold">Live proof</p><h2 class="text-3xl font-extrabold text-white mt-2">See what the automation is doing.</h2><p class="text-sm text-slate-400 mt-2">This panel reflects the current run state—not a marketing animation.</p></div>
-                <a href="https://jennymahmuda.github.io/automation-scrapped/" target="_blank" rel="noopener" class="text-xs font-semibold text-cyan-300 hover:text-cyan-200">Open live dashboard <i class="fa-solid fa-arrow-up-right-from-square ml-1"></i></a>
+                <a href="#operations" @click="openDashboard($event)" class="text-xs font-semibold text-cyan-300 hover:text-cyan-200">Open live dashboard <i class="fa-solid fa-arrow-up-right-from-square ml-1"></i></a>
             </div>
             <div class="grid lg:grid-cols-[1.2fr_.8fr] gap-5">
                 <div class="rounded-3xl border border-emerald-400/20 bg-slate-900/80 p-6 shadow-xl">
@@ -567,7 +567,7 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1.2fr_1fr_1fr_1fr] gap-9 pb-10">
                 <div><a href="#home" class="inline-flex items-center gap-3"><span class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-500 to-cyan-400 flex items-center justify-center"><i class="fa-solid fa-radar text-white"></i></span><span class="text-xl font-extrabold text-white">NexusLeads</span></a><p class="text-sm text-slate-400 leading-7 mt-4 max-w-xs">Verified public business research for agencies, freelancers, and growth teams that want a calmer path from search to outreach.</p><div class="flex items-center gap-3 mt-5"><a href="https://smartgentools.com" target="_blank" rel="noopener" aria-label="SmartGen Tools" class="h-9 w-9 rounded-xl border border-slate-700 bg-slate-900 flex items-center justify-center text-cyan-300 hover:border-cyan-400 transition"><i class="fa-solid fa-globe"></i></a><a href="https://sayadbayezid.com" target="_blank" rel="noopener" aria-label="Sayad Md Bayezid Hosan" class="h-9 w-9 rounded-xl border border-slate-700 bg-slate-900 flex items-center justify-center text-violet-300 hover:border-violet-400 transition"><i class="fa-solid fa-user"></i></a><a href="mailto:support@sayadbayezid.com" aria-label="Email support" class="h-9 w-9 rounded-xl border border-slate-700 bg-slate-900 flex items-center justify-center text-emerald-300 hover:border-emerald-400 transition"><i class="fa-solid fa-envelope"></i></a></div></div>
-                <div><p class="text-sm font-bold text-white mb-4">Product</p><div class="space-y-3 text-sm text-slate-400"><a href="#operations" class="block hover:text-cyan-300 transition">Try the dashboard</a><a href="#use-cases" class="block hover:text-cyan-300 transition">Use cases</a><a href="#pricing" class="block hover:text-cyan-300 transition">Pricing</a><a href="#how-it-works" class="block hover:text-cyan-300 transition">How it works</a></div></div>
+                <div><p class="text-sm font-bold text-white mb-4">Product</p><div class="space-y-3 text-sm text-slate-400"><a href="#operations" @click="openDashboard($event)" class="block hover:text-cyan-300 transition">Try the dashboard</a><a href="#use-cases" class="block hover:text-cyan-300 transition">Use cases</a><a href="#pricing" class="block hover:text-cyan-300 transition">Pricing</a><a href="#how-it-works" class="block hover:text-cyan-300 transition">How it works</a></div></div>
                 <div><p class="text-sm font-bold text-white mb-4">Resources</p><div class="space-y-3 text-sm text-slate-400"><a href="#prompt-library" class="block hover:text-violet-300 transition">Prompt library</a><a href="#proof" class="block hover:text-violet-300 transition">Live proof</a><a href="#reviews" class="block hover:text-violet-300 transition">Client voice</a><a href="#faq" class="block hover:text-violet-300 transition">FAQ</a><a href="#newsletter" class="block hover:text-violet-300 transition">NexusLeads notes</a></div></div>
                 <div><p class="text-sm font-bold text-white mb-4">Company</p><div class="space-y-3 text-sm text-slate-400"><a href="https://sayadbayezid.com" target="_blank" rel="noopener" class="block hover:text-amber-300 transition">About the founder</a><a href="mailto:info@sayadbayezid.com" class="block hover:text-amber-300 transition">Contact</a><a href="mailto:support@sayadbayezid.com" class="block hover:text-amber-300 transition">Support</a><a href="https://smartgentools.com" target="_blank" rel="noopener" class="block hover:text-amber-300 transition">SmartGen Tools</a></div></div>
             </div>
@@ -881,6 +881,18 @@
                         this.loading = false;
                         if (this.progress >= 90) this.progress = 100;
                     }
+                },
+                openDashboard(event) {
+                    if (event) event.preventDefault();
+                    const authenticated = Boolean(this.authToken && this.currentUser);
+                    this.track('dashboard_entry_click', { authenticated });
+                    if (!authenticated) {
+                        this.authMode = 'login';
+                        this.authError = '';
+                        this.showAuthModal = true;
+                        return;
+                    }
+                    window.setTimeout(() => document.getElementById('operations')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
                 },
                 async initApp() {
                     this.track('app_open', { page: 'nexusleads_home' });
