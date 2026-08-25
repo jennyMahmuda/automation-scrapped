@@ -20,7 +20,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  LIVE_FRONTEND_URL: https://jennymahmuda.github.io/automation-scrapped/
+  LIVE_FRONTEND_URL: https://leads.sayadbayezid.com/
   LIVE_API_URL: https://nexusleads-api.mahmudajenny6.workers.dev
   WORKER_NAME: nexusleads-api
   CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_AC_ID }}
@@ -74,6 +74,7 @@ jobs:
 
       - name: Prepare Doctor report
         run: |
+          mkdir -p doctor
           rm -rf doctor-report
           mkdir -p doctor-report/history
           mkdir -p doctor-report/raw
