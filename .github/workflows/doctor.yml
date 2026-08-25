@@ -656,20 +656,44 @@ jobs:
           for index, error in enumerate(browser.get("pageErrors", []), 1):
               add_issue(f"BROWSER-RUNTIME-{index}", "HIGH", "The page JavaScript crashed", error, "frontend/app.js", "Not established", "Use the error text to locate the failing function, then rerun Doctor.")
 
-          for index, failure in enumerate(browser.get("failedRequests", []), 1):
-              url = failure.get("url", "")
-              file_path, line, action = source_for_url(url)
-              add_issue(f"NETWORK-{index}", "HIGH", "A browser request was blocked or failed", f"{failure.get('method', 'REQUEST')} {url}\nBrowser reason: {failure.get('failure')}", file_path, line, action)
+          failed_api = [
+              item for item in browser.get("failedRequests", [])
+              if "/api/" in item.get("url", "")
+          ]
+          failed_external = [
+              item for item in browser.get("failedRequests", [])
+              if "/api/" not in item.get("url", "")
+              and "google-analytics.com" not in item.get("url", "")
+          ]
+          if failed_api:
+              examples = "; ".join(
+                  f"{item.get('method', 'REQUEST')} {item.get('url', '')}"
+                  for item in failed_api[:3]
+              )
+              add_issue(
+                  "NETWORK-API-GROUP", "CRITICAL", "The browser cannot reach the API",
+                  f"{len(failed_api)} API request(s) failed in the browser. Examples: {examples}. This is consistent with a cross-origin/CORS problem from the custom domain.",
+                  "cloudflare/wrangler.toml", "21",
+                  "Add https://leads.sayadbayezid.com to ALLOWED_ORIGINS, deploy the Worker, then run Doctor again. The CORS code is in cloudflare/worker.js:573-589.")
+          if failed_external:
+              examples = "; ".join(item.get("url", "") for item in failed_external[:3])
+              add_issue(
+                  "NETWORK-EXTERNAL-GROUP", "MEDIUM", "An external browser request failed",
+                  f"{len(failed_external)} non-API request(s) failed. Examples: {examples}.",
+                  "Not established", "Not established",
+                  "Check the external service only if the website feature depends on it. This is not the login/signup root cause.")
 
           seen_http = set()
           for response in browser.get("responses", []):
               url = response.get("url", "")
-              key = (response.get("method"), url, response.get("status"))
+              status = response.get("status")
+              if "google-analytics.com" in url or status in (404, 400, 401):
+                  continue
+              key = (response.get("method"), url, status)
               if key in seen_http:
                   continue
               seen_http.add(key)
               file_path, line, action = source_for_url(url)
-              status = response.get("status")
               severity = "CRITICAL" if status >= 500 else "HIGH"
               add_issue(f"HTTP-{len(seen_http)}", severity, f"The server returned HTTP {status}", f"{response.get('method', 'REQUEST')} {url} returned HTTP {status}.", file_path, line, action)
 
@@ -683,11 +707,13 @@ jobs:
               status = check.get("status")
               endpoint = check.get("endpoint", f"/api/auth/{mode}")
               if check.get("blocked") or check.get("error"):
-                  add_issue(
-                      f"AUTH-CORS-{mode.upper()}", "CRITICAL", f"{mode.title()} is blocked in the browser",
-                      f"The browser could not receive a normal response from {endpoint}. This usually means the custom frontend origin is missing from the Worker CORS allowlist.",
-                      "cloudflare/wrangler.toml", "21", "Add https://leads.sayadbayezid.com to ALLOWED_ORIGINS and deploy the Worker. The CORS logic is in cloudflare/worker.js:573-589.")
-                  auth_summary.append((mode, "BLOCKED", "The browser could not read the API response; likely CORS."))
+                  if not any(issue["id"] == "AUTH-CORS-GROUP" for issue in issues):
+                      add_issue(
+                          "AUTH-CORS-GROUP", "CRITICAL", "Login and signup are blocked by the browser",
+                          "The browser could not receive a normal response from the auth endpoints. Because the live custom domain is calling the Worker API, the most likely cause is that the custom frontend origin is missing from the Worker CORS allowlist.",
+                          "cloudflare/wrangler.toml", "21",
+                          "Change ALLOWED_ORIGINS to include https://leads.sayadbayezid.com, deploy the Worker, and run Doctor again. The CORS code is in cloudflare/worker.js:573-589. Do not change frontend/app.js first.")
+                  auth_summary.append((mode, "BLOCKED", "Browser could not read the API response; likely CORS."))
               elif status not in (expected, 409 if mode == "signup" else expected):
                   file_path, line, action = source_for_url(endpoint)
                   add_issue(
