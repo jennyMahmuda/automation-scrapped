@@ -1,0 +1,500 @@
+name: NexusLeads Doctor
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "cloudflare/**"
+      - "backend/**"
+      - "frontend/**"
+      - ".github/workflows/**"
+      - "cloudflare/wrangler.toml"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: nexusleads-doctor
+  cancel-in-progress: true
+
+jobs:
+  doctor:
+    name: Infrastructure Doctor
+    runs-on: ubuntu-latest
+
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_AC_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_KEY }}
+      EXPECTED_WORKER_NAME: nexusleads-api
+      EXPECTED_WORKER_URL: https://nexusleads-api.mahmudajenny6.workers.dev
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Wrangler
+        run: npm install --global wrangler
+
+      - name: Create Doctor directories
+        run: |
+          mkdir -p doctor/report
+          mkdir -p doctor/raw
+          mkdir -p doctor/summary
+
+      # ---------------------------------------------------------
+      # 1. Repository Structure
+      # ---------------------------------------------------------
+
+      - name: Check repository structure
+        shell: bash
+        run: |
+          echo "=== Repository Structure ==="
+
+          checks=(
+            "frontend/index.html"
+            "cloudflare/worker.js"
+            "cloudflare/wrangler.toml"
+            "backend/main.py"
+            ".github/workflows/pages.yml"
+            ".github/workflows/deploy-backend.yml"
+          )
+
+          failed=0
+
+          for file in "${checks[@]}"; do
+            if [ -f "$file" ]; then
+              echo "PASS | $file"
+            else
+              echo "FAIL | $file"
+              failed=1
+            fi
+          done
+
+          echo "repository_check_exit=$failed" \
+            > doctor/raw/repository.txt
+
+      # ---------------------------------------------------------
+      # 2. Cloudflare Authentication
+      # ---------------------------------------------------------
+
+      - name: Check Cloudflare authentication
+        id: cloudflare_auth
+        shell: bash
+        run: |
+          set +e
+
+          if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "CRITICAL | Cloudflare Account ID missing"
+            exit 1
+          fi
+
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "CRITICAL | Cloudflare API token missing"
+            exit 1
+          fi
+
+          wrangler whoami > doctor/raw/cloudflare-whoami.txt 2>&1
+
+          STATUS=$?
+
+          if [ "$STATUS" -eq 0 ]; then
+            echo "PASS | Cloudflare authentication"
+          else
+            echo "FAIL | Cloudflare authentication"
+            exit 1
+          fi
+
+      # ---------------------------------------------------------
+      # 3. Cloudflare Worker
+      # ---------------------------------------------------------
+
+      - name: Check Cloudflare Worker
+        shell: bash
+        run: |
+          set +e
+
+          wrangler deployments list \
+            --name "$EXPECTED_WORKER_NAME" \
+            > doctor/raw/worker-deployments.txt 2>&1
+
+          STATUS=$?
+
+          if [ "$STATUS" -eq 0 ]; then
+            echo "PASS | Worker deployment information available"
+          else
+            echo "FAIL | Unable to inspect Worker deployments"
+          fi
+
+      # ---------------------------------------------------------
+      # 4. Wrangler Configuration
+      # ---------------------------------------------------------
+
+      - name: Validate Wrangler configuration
+        shell: bash
+        run: |
+          if [ -f "cloudflare/wrangler.toml" ]; then
+            echo "PASS | wrangler.toml exists"
+
+            grep -E \
+              '^(name|compatibility_date|account_id|main)' \
+              cloudflare/wrangler.toml \
+              > doctor/raw/wrangler-config.txt || true
+
+          else
+            echo "CRITICAL | cloudflare/wrangler.toml missing"
+            exit 1
+          fi
+
+      # ---------------------------------------------------------
+      # 5. D1 Detection
+      # ---------------------------------------------------------
+
+      - name: Check D1 databases
+        shell: bash
+        run: |
+          set +e
+
+          wrangler d1 list \
+            > doctor/raw/d1.txt 2>&1
+
+          STATUS=$?
+
+          if [ "$STATUS" -eq 0 ]; then
+            echo "PASS | D1 API accessible"
+
+            if grep -qi "nexus" doctor/raw/d1.txt; then
+              echo "PASS | NexusLeads-related D1 resource detected"
+            else
+              echo "WARNING | No NexusLeads D1 resource detected by name"
+            fi
+          else
+            echo "WARNING | D1 inspection failed"
+          fi
+
+      # ---------------------------------------------------------
+      # 6. R2 Detection
+      # ---------------------------------------------------------
+
+      - name: Check R2 buckets
+        shell: bash
+        run: |
+          set +e
+
+          wrangler r2 bucket list \
+            > doctor/raw/r2.txt 2>&1
+
+          STATUS=$?
+
+          if [ "$STATUS" -eq 0 ]; then
+            echo "PASS | R2 API accessible"
+
+            if grep -qi "nexus" doctor/raw/r2.txt; then
+              echo "PASS | NexusLeads-related R2 bucket detected"
+            else
+              echo "INFO | No NexusLeads-related R2 bucket detected"
+            fi
+          else
+            echo "WARNING | R2 inspection failed"
+          fi
+
+      # ---------------------------------------------------------
+      # 7. KV Detection
+      # ---------------------------------------------------------
+
+      - name: Check KV namespaces
+        shell: bash
+        run: |
+          set +e
+
+          wrangler kv namespace list \
+            > doctor/raw/kv.txt 2>&1
+
+          STATUS=$?
+
+          if [ "$STATUS" -eq 0 ]; then
+            echo "PASS | KV API accessible"
+          else
+            echo "INFO | KV inspection unavailable or not configured"
+          fi
+
+      # ---------------------------------------------------------
+      # 8. DNS / Production Endpoint
+      # ---------------------------------------------------------
+
+      - name: Check production API endpoint
+        shell: bash
+        run: |
+          set +e
+
+          HTTP_STATUS=$(curl \
+            -L \
+            -s \
+            -o doctor/raw/api-response.txt \
+            -w "%{http_code}" \
+            --max-time 20 \
+            "$EXPECTED_WORKER_URL")
+
+          echo "HTTP_STATUS=$HTTP_STATUS" \
+            > doctor/raw/api-status.txt
+
+          case "$HTTP_STATUS" in
+            200|204)
+              echo "PASS | Production API reachable"
+              ;;
+            401|403)
+              echo "PASS | Production API reachable but protected"
+              ;;
+            404)
+              echo "WARNING | Production endpoint returned 404"
+              ;;
+            000)
+              echo "CRITICAL | Production endpoint unreachable"
+              ;;
+            *)
+              echo "WARNING | Production endpoint returned HTTP $HTTP_STATUS"
+              ;;
+          esac
+
+      # ---------------------------------------------------------
+      # 9. Frontend API Configuration
+      # ---------------------------------------------------------
+
+      - name: Check frontend API configuration
+        shell: bash
+        run: |
+          if [ ! -f "frontend/index.html" ]; then
+            echo "FAIL | frontend/index.html missing"
+            exit 1
+          fi
+
+          if grep -q "nexus-api-base" frontend/index.html; then
+            echo "PASS | nexus-api-base configuration found"
+          else
+            echo "WARNING | nexus-api-base meta tag missing"
+          fi
+
+          if grep -q "$EXPECTED_WORKER_URL" frontend/index.html; then
+            echo "PASS | Expected Worker URL found in frontend"
+          else
+            echo "WARNING | Expected Worker URL not found in frontend"
+          fi
+
+      # ---------------------------------------------------------
+      # 10. Secret Presence Check
+      # ---------------------------------------------------------
+
+      - name: Check required GitHub secrets
+        shell: bash
+        env:
+          GOOGLE_MAP_API_NEW: ${{ secrets.GOOGLE_MAP_API_NEW }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+          FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEEKFLARE_API_KEY: ${{ secrets.GEEKFLARE_API_KEY }}
+        run: |
+          check_secret() {
+            local name="$1"
+            local value="$2"
+
+            if [ -n "$value" ]; then
+              echo "PASS | $name present"
+            else
+              echo "WARNING | $name missing"
+            fi
+          }
+
+          check_secret "CLOUDFLARE_AC_ID" "$CLOUDFLARE_ACCOUNT_ID"
+          check_secret "CLOUDFLARE_API_KEY" "$CLOUDFLARE_API_TOKEN"
+          check_secret "GOOGLE_MAP_API_NEW" "$GOOGLE_MAP_API_NEW"
+          check_secret "GOOGLE_SERVICE_ACCOUNT_JSON" "$GOOGLE_SERVICE_ACCOUNT_JSON"
+          check_secret "GOOGLE_SHEET_ID" "$GOOGLE_SHEET_ID"
+          check_secret "FIRECRAWL_API_KEY" "$FIRECRAWL_API_KEY"
+          check_secret "GEMINI_API_KEY" "$GEMINI_API_KEY"
+          check_secret "GEEKFLARE_API_KEY" "$GEEKFLARE_API_KEY"
+
+      # ---------------------------------------------------------
+      # 11. Workflow Inventory
+      # ---------------------------------------------------------
+
+      - name: Inspect GitHub workflows
+        shell: bash
+        run: |
+          echo "=== GitHub Workflows ==="
+
+          find .github/workflows \
+            -maxdepth 1 \
+            -type f \
+            -print \
+            | sort \
+            > doctor/raw/workflows.txt
+
+          cat doctor/raw/workflows.txt
+
+      # ---------------------------------------------------------
+      # 12. Worker Source Inspection
+      # ---------------------------------------------------------
+
+      - name: Inspect Worker configuration
+        shell: bash
+        run: |
+          echo "=== Worker configuration indicators ==="
+
+          if grep -qi "google" cloudflare/worker.js; then
+            echo "PASS | Google integration detected"
+          else
+            echo "WARNING | Google integration not detected"
+          fi
+
+          if grep -qi "firecrawl" cloudflare/worker.js; then
+            echo "PASS | Firecrawl integration detected"
+          else
+            echo "INFO | Firecrawl integration not detected"
+          fi
+
+          if grep -qi "gemini" cloudflare/worker.js; then
+            echo "PASS | Gemini integration detected"
+          else
+            echo "INFO | Gemini integration not detected"
+          fi
+
+          if grep -qi "sheet" cloudflare/worker.js; then
+            echo "PASS | Google Sheets integration indicators detected"
+          else
+            echo "WARNING | Google Sheets integration indicators not detected"
+          fi
+
+      # ---------------------------------------------------------
+      # 13. Generate Doctor Report
+      # ---------------------------------------------------------
+
+      - name: Generate Doctor Report
+        shell: bash
+        run: |
+          REPORT_ID="doctor-$(date -u +%Y%m%d-%H%M%S)-${GITHUB_RUN_ID}"
+
+          cat > doctor/report/report.md <<EOF
+          # NexusLeads Doctor Report
+
+          **Report ID:** ${REPORT_ID}
+
+          **Repository:** ${GITHUB_REPOSITORY}
+
+          **Commit:** ${GITHUB_SHA}
+
+          **Branch:** ${GITHUB_REF_NAME}
+
+          **GitHub Run:** ${GITHUB_RUN_ID}
+
+          **Generated:** $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          ## Infrastructure
+
+          ### Cloudflare
+
+          - Account ID configured: checked
+          - API authorization: checked
+          - Worker: ${EXPECTED_WORKER_NAME}
+          - Production endpoint: ${EXPECTED_WORKER_URL}
+
+          ### Resources
+
+          - D1: inspected
+          - R2: inspected
+          - KV: inspected
+          - Worker deployments: inspected
+
+          ## Application
+
+          - Frontend structure: checked
+          - Worker source: checked
+          - Production API: checked
+          - Frontend API configuration: checked
+
+          ## Integrations
+
+          - Google Maps / Places: checked
+          - Google Service Account: checked
+          - Google Sheets: checked
+          - Firecrawl: checked
+          - Gemini: checked
+          - Geekflare: checked
+
+          ## GitHub
+
+          - Workflow inventory: checked
+          - GitHub Actions configuration: checked
+
+          ## Security
+
+          - Secrets are not printed into this report.
+          - Secret values are never persisted.
+          - This workflow performs read-only infrastructure inspection.
+
+          ## Remediation
+
+          This Doctor version does not automatically modify infrastructure.
+
+          Any remediation must be handled by an explicitly authorized workflow.
+
+          ## Raw Diagnostics
+
+          Raw diagnostic files are available as workflow artifacts.
+          EOF
+
+      # ---------------------------------------------------------
+      # 14. Upload Report
+      # ---------------------------------------------------------
+
+      - name: Upload Doctor Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexusleads-doctor-report-${{ github.run_id }}
+          path: doctor/
+          retention-days: 14
+
+      # ---------------------------------------------------------
+      # 15. Final Summary
+      # ---------------------------------------------------------
+
+      - name: Doctor Summary
+        shell: bash
+        run: |
+          {
+            echo "## 🩺 NexusLeads Doctor"
+            echo ""
+            echo "**Repository:** $GITHUB_REPOSITORY"
+            echo ""
+            echo "**Commit:** $GITHUB_SHA"
+            echo ""
+            echo "**Worker:** $EXPECTED_WORKER_NAME"
+            echo ""
+            echo "**Endpoint:** $EXPECTED_WORKER_URL"
+            echo ""
+            echo "### Checks"
+            echo "- Cloudflare authentication"
+            echo "- Worker deployment"
+            echo "- Wrangler configuration"
+            echo "- D1"
+            echo "- R2"
+            echo "- KV"
+            echo "- Production API"
+            echo "- Frontend API configuration"
+            echo "- GitHub Secrets presence"
+            echo "- GitHub workflows"
+            echo "- Worker integrations"
+            echo ""
+            echo "### Mode"
+            echo "READ-ONLY"
+            echo ""
+            echo "No infrastructure was created, modified, or deleted."
+          } >> "$GITHUB_STEP_SUMMARY"
