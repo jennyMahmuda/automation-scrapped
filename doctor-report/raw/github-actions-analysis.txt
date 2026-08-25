@@ -1,0 +1,142 @@
+=== WORKFLOWS ===
+.github/workflows/deploy-backend.yml
+.github/workflows/doctor.yml
+.github/workflows/enable-paid-user.yml
+.github/workflows/pages.yml
+
+=== DEPLOYMENT REFERENCES ===
+.github/workflows/enable-paid-user.yml:15:      - name: Trigger Cloudflare Admin API
+.github/workflows/enable-paid-user.yml:18:          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+.github/workflows/enable-paid-user.yml:20:          if [ -z "$ADMIN_SECRET" ]; then
+.github/workflows/enable-paid-user.yml:21:            echo "::error::ADMIN_SECRET is missing! Go to Settings > Secrets and variables > Actions and add 'ADMIN_SECRET' with the value 'nexusleads-admin-2026-secret' (or your custom secret)."
+.github/workflows/enable-paid-user.yml:27:            "https://nexusleads-api.mahmudajenny6.workers.dev/api/admin/enable-paid" \
+.github/workflows/enable-paid-user.yml:29:            -H "X-Admin-Secret: $ADMIN_SECRET" \
+.github/workflows/pages.yml:1:name: Deploy NexusLeads frontend to GitHub Pages
+.github/workflows/pages.yml:10:  pages: write
+.github/workflows/pages.yml:14:  group: pages
+.github/workflows/pages.yml:18:  deploy:
+.github/workflows/pages.yml:19:    environment:
+.github/workflows/pages.yml:20:      name: github-pages
+.github/workflows/pages.yml:21:      url: ${{ steps.deployment.outputs.page_url }}
+.github/workflows/pages.yml:27:      - name: Configure Pages
+.github/workflows/pages.yml:28:        uses: actions/configure-pages@v5
+.github/workflows/pages.yml:33:        uses: actions/upload-pages-artifact@v3
+.github/workflows/pages.yml:37:      - name: Deploy to GitHub Pages
+.github/workflows/pages.yml:38:        id: deployment
+.github/workflows/pages.yml:39:        uses: actions/deploy-pages@v4
+.github/workflows/deploy-backend.yml:1:name: Deploy Cloudflare Worker & Sync Secrets
+.github/workflows/deploy-backend.yml:7:      - 'cloudflare/**'
+.github/workflows/deploy-backend.yml:8:      - '.github/workflows/deploy-backend.yml'
+.github/workflows/deploy-backend.yml:12:  deploy-worker:
+.github/workflows/deploy-backend.yml:23:      - name: Deploy Worker to Cloudflare
+.github/workflows/deploy-backend.yml:24:        uses: cloudflare/wrangler-action@v3
+.github/workflows/deploy-backend.yml:26:          apiToken: ${{ secrets.CLOUDFLARE_API_KEY }}
+.github/workflows/deploy-backend.yml:27:          accountId: ${{ secrets.CLOUDFLARE_AC_ID }}
+.github/workflows/deploy-backend.yml:28:          workingDirectory: 'cloudflare'
+.github/workflows/deploy-backend.yml:29:          wranglerVersion: 'latest'
+.github/workflows/deploy-backend.yml:30:          command: deploy --config wrangler-deploy.toml
+.github/workflows/deploy-backend.yml:32:      - name: Sync Secrets to Cloudflare Worker
+.github/workflows/deploy-backend.yml:34:          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_KEY }}
+.github/workflows/deploy-backend.yml:35:          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_AC_ID }}
+.github/workflows/deploy-backend.yml:36:          GOOGLE_MAP_API_NEW: ${{ secrets.GOOGLE_MAP_API_NEW }}
+.github/workflows/deploy-backend.yml:37:          GOOGLE_MAP_API_NEW_2: ${{ secrets.GOOGLE_MAP_API_NEW_2 }}
+.github/workflows/deploy-backend.yml:38:          GOOGLE_MAP_API_NEW_3: ${{ secrets.GOOGLE_MAP_API_NEW_3 }}
+.github/workflows/deploy-backend.yml:39:          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+.github/workflows/deploy-backend.yml:40:          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+.github/workflows/deploy-backend.yml:41:          FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
+.github/workflows/deploy-backend.yml:42:          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+.github/workflows/deploy-backend.yml:43:          GEMINI_OUTREACH_API_KEY: ${{ secrets.GEMINI_OUTREACH_API_KEY }}
+.github/workflows/deploy-backend.yml:44:          GEEKFLARE_API_KEY: ${{ secrets.GEEKFLARE_API_KEY }}
+.github/workflows/deploy-backend.yml:45:          NEXUS_CREDENTIALS_KEY: ${{ secrets.NEXUS_CREDENTIALS_KEY }}
+.github/workflows/deploy-backend.yml:46:          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+.github/workflows/deploy-backend.yml:47:          ADMIN_NOTIFICATION_EMAIL: ${{ secrets.ADMIN_NOTIFICATION_EMAIL }}
+.github/workflows/deploy-backend.yml:49:          cd cloudflare
+.github/workflows/deploy-backend.yml:50:          for secret in GOOGLE_MAP_API_NEW GOOGLE_MAP_API_NEW_2 GOOGLE_MAP_API_NEW_3 GOOGLE_SERVICE_ACCOUNT_JSON GOOGLE_SHEET_ID FIRECRAWL_API_KEY GEMINI_API_KEY GEMINI_OUTREACH_API_KEY GEEKFLARE_API_KEY NEXUS_CREDENTIALS_KEY RESEND_API_KEY ADMIN_NOTIFICATION_EMAIL; do
+.github/workflows/deploy-backend.yml:51:            val="${!secret}"
+.github/workflows/deploy-backend.yml:53:              echo "$val" | npx wrangler secret put "$secret" --config wrangler-deploy.toml || echo "Failed to set $secret"
+.github/workflows/doctor.yml:10:      - "cloudflare/**"
+.github/workflows/doctor.yml:24:  LIVE_API_URL: https://nexusleads-api.mahmudajenny6.workers.dev
+.github/workflows/doctor.yml:26:  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_AC_ID }}
+.github/workflows/doctor.yml:27:  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_KEY }}
+.github/workflows/doctor.yml:64:          npm install --global wrangler
+.github/workflows/doctor.yml:92:          find frontend cloudflare backend .github/workflows \
+.github/workflows/doctor.yml:115:              frontend cloudflare backend \
+.github/workflows/doctor.yml:126:              frontend cloudflare backend \
+.github/workflows/doctor.yml:134:      # 6. STATIC SECRET REFERENCE DISCOVERY
+.github/workflows/doctor.yml:137:      - name: Discover secret references
+.github/workflows/doctor.yml:141:            "(CLOUDFLARE_[A-Z0-9_]+|GOOGLE_[A-Z0-9_]+|FIRECRAWL_[A-Z0-9_]+|GEMINI_[A-Z0-9_]+|GEEKFLARE_[A-Z0-9_]+)" \
+.github/workflows/doctor.yml:142:            frontend cloudflare backend .github \
+.github/workflows/doctor.yml:151:            > doctor-report/raw/secret-references.txt || true
+.github/workflows/doctor.yml:154:      # 7. SECRET STATUS
+.github/workflows/doctor.yml:157:      - name: Check required secret status
+.github/workflows/doctor.yml:160:          GOOGLE_MAP_API_NEW: ${{ secrets.GOOGLE_MAP_API_NEW }}
+.github/workflows/doctor.yml:161:          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+.github/workflows/doctor.yml:162:          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+.github/workflows/doctor.yml:163:          FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
+.github/workflows/doctor.yml:164:          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+.github/workflows/doctor.yml:165:          GEEKFLARE_API_KEY: ${{ secrets.GEEKFLARE_API_KEY }}
+.github/workflows/doctor.yml:168:            echo "CLOUDFLARE_AC_ID=$( [ -n "$CLOUDFLARE_ACCOUNT_ID" ] && echo PRESENT || echo MISSING )"
+.github/workflows/doctor.yml:169:            echo "CLOUDFLARE_API_KEY=$( [ -n "$CLOUDFLARE_API_TOKEN" ] && echo PRESENT || echo MISSING )"
+.github/workflows/doctor.yml:176:          } > doctor-report/raw/secrets-status.txt
+.github/workflows/doctor.yml:179:      # 8. CLOUDFLARE CONNECTION
+.github/workflows/doctor.yml:182:      - name: Check Cloudflare authentication
+.github/workflows/doctor.yml:187:          if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+.github/workflows/doctor.yml:188:            echo "FAIL|Cloudflare Account ID secret is missing" \
+.github/workflows/doctor.yml:189:              > doctor-report/raw/cloudflare-auth.txt
+.github/workflows/doctor.yml:193:          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+.github/workflows/doctor.yml:194:            echo "FAIL|Cloudflare API token secret is missing" \
+.github/workflows/doctor.yml:195:              > doctor-report/raw/cloudflare-auth.txt
+.github/workflows/doctor.yml:199:          wrangler whoami \
+.github/workflows/doctor.yml:200:            > doctor-report/raw/cloudflare-auth.txt 2>&1
+.github/workflows/doctor.yml:203:            echo "PASS|Cloudflare authentication successful" \
+.github/workflows/doctor.yml:204:              >> doctor-report/raw/cloudflare-auth.txt
+.github/workflows/doctor.yml:206:            echo "FAIL|Cloudflare authentication failed" \
+.github/workflows/doctor.yml:207:              >> doctor-report/raw/cloudflare-auth.txt
+.github/workflows/doctor.yml:211:      # 9. CLOUDFLARE RESOURCES
+.github/workflows/doctor.yml:214:      - name: Inspect Cloudflare resources
+.github/workflows/doctor.yml:219:          wrangler d1 list \
+.github/workflows/doctor.yml:220:            > doctor-report/raw/cloudflare-d1.txt 2>&1
+.github/workflows/doctor.yml:222:          wrangler r2 bucket list \
+.github/workflows/doctor.yml:223:            > doctor-report/raw/cloudflare-r2.txt 2>&1
+.github/workflows/doctor.yml:225:          wrangler kv namespace list \
+.github/workflows/doctor.yml:226:            > doctor-report/raw/cloudflare-kv.txt 2>&1
+.github/workflows/doctor.yml:228:          wrangler deployments list \
+.github/workflows/doctor.yml:230:            > doctor-report/raw/cloudflare-worker-deployments.txt 2>&1
+.github/workflows/doctor.yml:233:      # 10. WRANGLER CONFIGURATION
+.github/workflows/doctor.yml:236:      - name: Inspect Wrangler configuration
+.github/workflows/doctor.yml:239:          if [ -f cloudflare/wrangler.toml ]; then
+.github/workflows/doctor.yml:240:            cp cloudflare/wrangler.toml \
+.github/workflows/doctor.yml:241:              doctor-report/raw/wrangler.toml
+.github/workflows/doctor.yml:244:              "name|main|compatibility_date|account_id|d1|r2|kv|vars|routes|workers_dev" \
+.github/workflows/doctor.yml:245:              cloudflare/wrangler.toml \
+.github/workflows/doctor.yml:246:              > doctor-report/raw/wrangler-analysis.txt || true
+.github/workflows/doctor.yml:248:            echo "FAIL|cloudflare/wrangler.toml missing" \
+.github/workflows/doctor.yml:249:              > doctor-report/raw/wrangler-analysis.txt
+.github/workflows/doctor.yml:495:              frontend cloudflare backend \
+.github/workflows/doctor.yml:506:              frontend cloudflare backend \
+.github/workflows/doctor.yml:526:              frontend cloudflare backend \
+.github/workflows/doctor.yml:537:              frontend cloudflare backend \
+.github/workflows/doctor.yml:562:            echo "=== DEPLOYMENT REFERENCES ==="
+.github/workflows/doctor.yml:565:              "wrangler|cloudflare|deploy|pages|workers|secret|environment" \
+.github/workflows/doctor.yml:745:                      "cloudflare/worker.js",
+.github/workflows/doctor.yml:750:          # Wrangler
+.github/workflows/doctor.yml:753:          wrangler = raw / "wrangler-analysis.txt"
+.github/workflows/doctor.yml:755:          if not wrangler.exists():
+.github/workflows/doctor.yml:759:                  "CLOUDFLARE",
+.github/workflows/doctor.yml:760:                  "Wrangler configuration missing",
+.github/workflows/doctor.yml:761:                  "cloudflare/wrangler.toml was not found.",
+.github/workflows/doctor.yml:762:                  "cloudflare/wrangler.toml",
+.github/workflows/doctor.yml:767:          # Secret status
+.github/workflows/doctor.yml:770:          secret_status = raw / "secrets-status.txt"
+.github/workflows/doctor.yml:772:          if secret_status.exists():
+.github/workflows/doctor.yml:773:              for line in secret_status.read_text().splitlines():
+.github/workflows/doctor.yml:779:                          f"SECRET-{name}",
+.github/workflows/doctor.yml:782:                          f"Required secret is missing: {name}",
+.github/workflows/doctor.yml:783:                          "The secret exists as a dependency but is not available to this workflow.",
+.github/workflows/doctor.yml:842:                  "secret_values_exposed": False,
+.github/workflows/doctor.yml:843:                  "secret_values_stored": False,
+.github/workflows/doctor.yml:844:                  "secret_names_only": True
+.github/workflows/doctor.yml:864:          lines.append("## Environment")
+.github/workflows/doctor.yml:916:          lines.append("## Secret Security")
+.github/workflows/doctor.yml:919:              "Only GitHub Secret names and presence status are used. "
+.github/workflows/doctor.yml:920:              "Secret values are never written to the report."

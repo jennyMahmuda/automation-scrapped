@@ -1,0 +1,13 @@
+
+ ⛅️ wrangler 4.126.0
+────────────────────
+Getting User settings...
+👋 You are logged in with an Account API Token, associated with the account Mahmudajenny6@gmail.com's Account.
+ℹ️  The API Token is read from the CLOUDFLARE_API_TOKEN environment variable.
+┌───────────────────────────────────┬──────────────────────────────────┐
+│ Account Name                      │ Account ID                       │
+├───────────────────────────────────┼──────────────────────────────────┤
+│ Mahmudajenny6@gmail.com's Account │ 0b1d4447f765e7fd26243f6a462d728a │
+└───────────────────────────────────┴──────────────────────────────────┘
+🔓 To see token permissions visit https://dash.cloudflare.com/0b1d4447f765e7fd26243f6a462d728a/api-tokens
+PASS|Cloudflare authentication successful

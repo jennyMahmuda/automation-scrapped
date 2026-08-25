@@ -1,0 +1,186 @@
+=== AUTHENTICATION SOURCE ANALYSIS ===
+frontend/app.js:20:                showAuthModal: false,
+frontend/app.js:34:                authMode: 'login',
+frontend/app.js:35:                authEmail: '',
+frontend/app.js:36:                authPassword: '',
+frontend/app.js:37:                authError: '',
+frontend/app.js:38:                authLoading: false,
+frontend/app.js:40:                authToken: localStorage.getItem('nexusleads-token') || '',
+frontend/app.js:60:                    if (this.authToken) headers['Authorization'] = 'Bearer ' + this.authToken;
+frontend/app.js:67:                    if (response.status === 401 || data.code === 'AUTH_REQUIRED') {
+frontend/app.js:68:                        this.showAuthModal = true;
+frontend/app.js:69:                        this.authMode = 'login';
+frontend/app.js:174:                    const authenticated = Boolean(this.authToken && this.currentUser);
+frontend/app.js:175:                    this.track('dashboard_entry_click', { authenticated });
+frontend/app.js:188:                    if (this.authToken) {
+frontend/app.js:190:                            const meRes = await fetch(this.apiBase + '/api/auth/me', {
+frontend/app.js:191:                                headers: { 'Authorization': 'Bearer ' + this.authToken }
+frontend/app.js:199:                                this.authToken = '';
+frontend/app.js:203:                            this.authToken = '';
+frontend/app.js:208:                        if (this.authToken) headers['Authorization'] = 'Bearer ' + this.authToken;
+frontend/app.js:242:                        if (!this.showSuccessPopup && !this.showAuthModal) this.showNewsletterPopup = true;
+frontend/app.js:250:                    if (!this.authToken || !this.currentUser) {
+frontend/app.js:252:                        this.authMode = 'login';
+frontend/app.js:253:                        this.showAuthModal = true;
+frontend/app.js:266:                        if (this.authToken) headers['Authorization'] = 'Bearer ' + this.authToken;
+frontend/app.js:269:                        if (!res.ok || !data.success) throw new Error(data.error || 'Newsletter signup failed.');
+frontend/app.js:281:                    if (!this.authToken) { this.openReviewModal(); return; }
+frontend/app.js:285:                        const res = await fetch(this.apiBase + '/api/reviews', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.authToken }, body: JSON.stringify({ display_name: this.reviewName, role: this.reviewRole, rating: Number(this.reviewRating), message: this.reviewMessage }) });
+frontend/app.js:304:                    if (!this.authToken) return;
+frontend/app.js:306:                        const res = await fetch(this.apiBase + '/api/account/credentials', { headers: { 'Authorization': 'Bearer ' + this.authToken } });
+frontend/app.js:313:                async submitAuth() {
+frontend/app.js:314:                    this.authLoading = true;
+frontend/app.js:315:                    this.authError = '';
+frontend/app.js:316:                    const endpoint = this.authMode === 'login' ? '/api/auth/login' : '/api/auth/signup';
+frontend/app.js:321:                            body: JSON.stringify({ email: this.authEmail, password: this.authPassword })
+frontend/app.js:324:                        if (!res.ok || !data.success) throw new Error(data.error || 'Authentication failed.');
+frontend/app.js:325:                        this.authToken = data.token;
+frontend/app.js:330:                        this.showAuthModal = false;
+frontend/app.js:331:                        this.authPassword = '';
+frontend/app.js:333:                        this.track(this.authMode === 'login' ? 'login' : 'sign_up', { plan: data.user.plan || 'free', auth_method: 'email_password' });
+frontend/app.js:336:                        this.authError = err.message;
+frontend/app.js:337:                        this.track('auth_failed', { mode: this.authMode, reason: 'request_rejected' });
+frontend/app.js:339:                        this.authLoading = false;
+frontend/app.js:344:                        if (this.authToken) {
+frontend/app.js:345:                            await fetch(this.apiBase + '/api/auth/logout', {
+frontend/app.js:347:                                headers: { 'Authorization': 'Bearer ' + this.authToken }
+frontend/app.js:351:                    this.authToken = '';
+frontend/app.js:365:                        if (this.authToken) headers['Authorization'] = 'Bearer ' + this.authToken;
+frontend/app.js:388:                    if (!this.authToken) {
+frontend/app.js:391:                        this.showAuthModal = true;
+frontend/app.js:397:                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.authToken },
+frontend/app.js:492:                        if (this.authToken) {
+frontend/app.js:493:                            const response = await fetch(this.apiBase + '/api/account/credentials', { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + this.authToken } });
+frontend/app.js:516:                        this.authMode = 'login';
+frontend/app.js:517:                        this.showAuthModal = true;
+frontend/app.js:525:                        if (this.authToken) headers['Authorization'] = 'Bearer ' + this.authToken;
+frontend/index.html:83:        "author": {
+frontend/index.html:159:                    <div class="hidden sm:flex items-center gap-2"><button @click="showAuthModal = true; authMode = 'login'" class="px-3 py-2 rounded-full text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition">Log In</button><button @click="showAuthModal = true; authMode = 'signup'" class="px-3 py-2 rounded-full text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-white transition">Sign Up</button></div>
+frontend/index.html:162:                <button x-show="authToken" @click="openByok()" class="hidden md:inline-flex items-center px-3 py-2 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 hover:bg-indigo-500/20 transition"><i class="fa-solid fa-key mr-1.5"></i> Maps BYOK</button>
+frontend/index.html:176:                <div class="grid grid-cols-2 gap-2 pt-2 sm:hidden"><button @click="showAuthModal = true; authMode = 'login'; mobileMenu = false" class="rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-2.5 text-xs font-semibold text-indigo-200">Log In</button><button @click="showAuthModal = true; authMode = 'signup'; mobileMenu = false" class="rounded-xl bg-cyan-500 px-3 py-2.5 text-xs font-semibold text-slate-950">Sign Up</button></div>
+frontend/index.html:258:                    <div class="mt-5 rounded-2xl border border-slate-800 bg-black/20 p-4 font-mono text-xs text-slate-400 space-y-2"><p><span class="text-emerald-400">PASS</span> Live dashboard loaded in browser verification</p><p><span class="text-emerald-400">PASS</span> API health responds with status: ok</p><p><span class="text-emerald-400">PASS</span> Auth, credits, BYOK, and Sheet routes are available</p></div>
+frontend/index.html:295:                <div class="rounded-3xl border border-cyan-400/20 bg-slate-900/80 p-7 shadow-xl"><p class="text-xs uppercase tracking-wider text-cyan-300 font-semibold">Free tier</p><h3 class="text-3xl font-extrabold text-white mt-2">$0 <span class="text-sm font-medium text-slate-500">to start</span></h3><p class="text-sm text-slate-400 leading-7 mt-3">Explore the complete dashboard with 100 lead credits per UTC day, verified-only mode, outreach drafts, and manual or automatic Sheet sync.</p><ul class="text-xs text-slate-300 space-y-2 mt-5"><li><i class="fa-solid fa-check text-emerald-400 mr-2"></i>20–50 lead targets</li><li><i class="fa-solid fa-check text-emerald-400 mr-2"></i>Public phone and email verification</li><li><i class="fa-solid fa-check text-emerald-400 mr-2"></i>Google Sheets export</li></ul><button @click="showAuthModal = true; authMode = 'signup'" class="w-full mt-6 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-3 text-sm font-bold text-cyan-200 hover:bg-cyan-400/20 transition">Create free account</button></div>
+frontend/index.html:296:                <div class="rounded-3xl border border-violet-400/30 bg-gradient-to-br from-violet-950/50 via-indigo-950/30 to-slate-900/90 p-7 shadow-xl relative overflow-hidden"><div class="absolute right-5 top-5 rounded-full bg-violet-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-violet-200">Best control</div><p class="text-xs uppercase tracking-wider text-violet-300 font-semibold">BYOK upgrade</p><h3 class="text-3xl font-extrabold text-white mt-2">From $3 <span class="text-sm font-medium text-slate-500">/ month</span></h3><p class="text-sm text-slate-400 leading-7 mt-3">Use your own Google Maps, Gemini, and enrichment keys. You pay provider costs directly plus a small NexusLeads platform fee.</p><div class="grid grid-cols-3 gap-2 mt-5"><div class="rounded-xl border border-violet-400/20 bg-slate-950/60 p-3 text-center"><p class="text-lg font-extrabold text-white">$3</p><p class="text-[10px] text-slate-500">1 month</p></div><div class="rounded-xl border border-violet-400/20 bg-slate-950/60 p-3 text-center"><p class="text-lg font-extrabold text-white">$5</p><p class="text-[10px] text-slate-500">2 months</p></div><div class="rounded-xl border border-violet-400/20 bg-slate-950/60 p-3 text-center"><p class="text-lg font-extrabold text-white">$10</p><p class="text-[10px] text-slate-500">5 months</p></div></div><a href="https://www.paypal.me/Connectwithbayezid" target="_blank" rel="noopener noreferrer" onclick="nexusTrack('begin_checkout', { method: 'paypal', placement: 'pricing' })" class="w-full mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-[#0070ba] px-4 py-3 text-sm font-bold text-white shadow-lg shadow-sky-950/40 hover:bg-[#005ea6] transition"><i class="fa-brands fa-paypal text-lg"></i> Pay with PayPal</a><p class="text-[11px] text-slate-500 text-center mt-3">Platform fee only. Configuration available in dashboard after login.</p></div>
+frontend/index.html:383:                    <input type="password" x-model="byokMapsKey" placeholder="AIzaSy..." class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-indigo-500">
+frontend/index.html:394:                    <input type="password" x-model="byokGeminiKey" placeholder="AIzaSy..." class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-indigo-500">
+frontend/index.html:416:    <!-- Auth Modal (Login / Signup) -->
+frontend/index.html:417:    <div x-show="showAuthModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4" style="display: none;">
+frontend/index.html:418:        <div @click.away="showAuthModal = false" class="bg-slate-900 border border-cyan-500/30 rounded-2xl max-w-md w-full p-6 shadow-2xl relative overflow-hidden">
+frontend/index.html:422:                    <span x-text="authMode === 'login' ? 'Log In to NexusLeads' : 'Create Account'"></span>
+frontend/index.html:424:                <button @click="showAuthModal = false" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+frontend/index.html:426:            <form @submit.prevent="submitAuth" class="space-y-4 text-sm">
+frontend/index.html:429:                    <input type="email" x-model="authEmail" required placeholder="you@domain.com" class="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-cyan-500">
+frontend/index.html:432:                    <label class="block text-xs font-semibold text-slate-300 mb-1">Password (min 8 chars)</label>
+frontend/index.html:433:                    <input type="password" x-model="authPassword" required placeholder="••••••••" class="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-cyan-500">
+frontend/index.html:435:                <div x-show="authError" x-text="authError" class="text-xs text-rose-400 bg-rose-500/10 p-2.5 rounded border border-rose-500/20"></div>
+frontend/index.html:437:                    <button type="button" @click="authMode = authMode === 'login' ? 'signup' : 'login'" class="text-xs text-cyan-400 hover:underline"><span x-text="authMode === 'login' ? 'Need an account? Sign up' : 'Have an account? Log in'"></span></button>
+frontend/index.html:438:                    <button type="submit" :disabled="authLoading" class="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-indigo-600 text-white text-xs font-bold rounded-lg shadow-lg hover:shadow-cyan-500/20 transition disabled:opacity-50"><span x-text="authLoading ? 'Please wait...' : (authMode === 'login' ? 'Log In' : 'Create Account')"></span></button>
+frontend/dashboard.html:84:                        <button @click="showAuthModal = true; authMode = 'login'" class="inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-400/30 bg-indigo-500/10 px-5 py-3.5 text-sm font-bold text-indigo-200 hover:bg-indigo-500/20 transition"><i class="fa-solid fa-right-to-bracket"></i> Log in</button>
+frontend/dashboard.html:85:                        <button @click="showAuthModal = true; authMode = 'signup'" class="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-500 px-5 py-3.5 text-sm font-bold text-white shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 transition"><i class="fa-solid fa-user-plus"></i> Create free account</button>
+frontend/dashboard.html:91:            <!-- Live Dashboard for authenticated users -->
+frontend/dashboard.html:457:                    <input type="password" x-model="byokMapsKey" placeholder="AIzaSy..." class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-indigo-500">
+frontend/dashboard.html:472:                    <input type="password" x-model="byokGeminiKey" placeholder="AIzaSy..." class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-indigo-500">
+frontend/dashboard.html:498:    <!-- Auth Modal (Login / Signup) -->
+frontend/dashboard.html:499:    <div x-show="showAuthModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4" style="display: none;">
+frontend/dashboard.html:500:        <div @click.away="showAuthModal = false" class="bg-slate-900 border border-cyan-500/30 rounded-2xl max-w-md w-full p-6 shadow-2xl relative overflow-hidden">
+frontend/dashboard.html:504:                    <span x-text="authMode === 'login' ? 'Log In to NexusLeads' : 'Create Account'"></span>
+frontend/dashboard.html:506:                <button @click="showAuthModal = false" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+frontend/dashboard.html:508:            <form @submit.prevent="submitAuth" class="space-y-4 text-sm">
+frontend/dashboard.html:511:                    <input type="email" x-model="authEmail" required placeholder="you@domain.com" class="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-cyan-500">
+frontend/dashboard.html:514:                    <label class="block text-xs font-semibold text-slate-300 mb-1">Password (min 8 chars)</label>
+frontend/dashboard.html:515:                    <input type="password" x-model="authPassword" required placeholder="••••••••" class="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-cyan-500">
+frontend/dashboard.html:517:                <div x-show="authError" x-text="authError" class="text-xs text-rose-400 bg-rose-500/10 p-2.5 rounded border border-rose-500/20"></div>
+frontend/dashboard.html:519:                    <button type="button" @click="authMode = authMode === 'login' ? 'signup' : 'login'" class="text-xs text-cyan-400 hover:underline"><span x-text="authMode === 'login' ? 'Need an account? Sign up' : 'Have an account? Log in'"></span></button>
+frontend/dashboard.html:520:                    <button type="submit" :disabled="authLoading" class="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-indigo-600 text-white text-xs font-bold rounded-lg shadow-lg hover:shadow-cyan-500/20 transition disabled:opacity-50"><span x-text="authLoading ? 'Please wait...' : (authMode === 'login' ? 'Log In' : 'Create Account')"></span></button>
+cloudflare/worker.js:190:async function hashPassword(password) {
+cloudflare/worker.js:192:  const material = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+cloudflare/worker.js:198:async function verifyPassword(password, stored) {
+cloudflare/worker.js:201:  const material = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+cloudflare/worker.js:238:  const authorization = request.headers.get("Authorization") || "";
+cloudflare/worker.js:239:  const token = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
+cloudflare/worker.js:254:  await env.NEXUS_DB.prepare("UPDATE users SET last_login_at = ?, updated_at = ? WHERE id = ?").bind(now, now, userId).run();
+cloudflare/worker.js:303:  if (!user) return json({ success: false, code: "AUTH_REQUIRED", error: "Please log in to verify spreadsheet access" }, 401);
+cloudflare/worker.js:314:      headers: { authorization: `Bearer ${accessToken}` }
+cloudflare/worker.js:338:  if (!user) return json({ success: false, code: "AUTH_REQUIRED", error: "Please log in before submitting a review." }, 401);
+cloudflare/worker.js:370:      headers: { "Content-Type": "application/json", "Accept": "application/json", "User-Agent": "NexusLeads-Notifier/1.0", "Authorization": `Bearer ${resendKey}` },
+cloudflare/worker.js:391:async function handleSignup(request, env) {
+cloudflare/worker.js:395:  const password = String(body?.password || "");
+cloudflare/worker.js:396:  if (!email || password.length < 8) return json({ success: false, error: "Use a valid email and a password with at least 8 characters" }, 400);
+cloudflare/worker.js:401:  const passwordHash = await hashPassword(password);
+cloudflare/worker.js:402:  await env.NEXUS_DB.prepare("INSERT INTO users (id, email, password_hash, email_verified, plan, created_at, updated_at) VALUES (?, ?, ?, 1, 'free', ?, ?)").bind(id, email, passwordHash, now, now).run();
+cloudflare/worker.js:411:async function handleLogin(request, env) {
+cloudflare/worker.js:415:  const password = String(body?.password || "");
+cloudflare/worker.js:416:  const user = await env.NEXUS_DB.prepare("SELECT id, email, password_hash, plan, email_verified FROM users WHERE email = ?").bind(email).first();
+cloudflare/worker.js:417:  if (!user || !(await verifyPassword(password, user.password_hash))) return json({ success: false, error: "Invalid email or password" }, 401);
+cloudflare/worker.js:419:  // Admin Notification: User Login
+cloudflare/worker.js:420:  await notifyAdmin("User Login", { user_id: user.id, email: user.email, plan: user.plan }, env).catch(() => null);
+cloudflare/worker.js:428:  if (!user) return json({ success: false, error: "Authentication required" }, 401);
+cloudflare/worker.js:433:  const authorization = request.headers.get("Authorization") || "";
+cloudflare/worker.js:434:  const token = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
+cloudflare/worker.js:444:  if (!user) return json({ success: false, error: "Authentication required" }, 401);
+cloudflare/worker.js:462:  if (!user) return json({ success: false, error: "Authentication required" }, 401);
+cloudflare/worker.js:517:  if (!user) return json({ success: false, code: "AUTH_REQUIRED", error: "Authentication required" }, 401);
+cloudflare/worker.js:524:  const authHeader = request.headers.get("X-Admin-Secret") || request.headers.get("Authorization") || "";
+cloudflare/worker.js:525:  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : authHeader;
+cloudflare/worker.js:528:    return json({ success: false, error: "Unauthorized admin secret" }, 401);
+cloudflare/worker.js:538:  if (!user) return json({ success: false, error: `User with email ${email} not found. They must sign up first.` }, 404);
+cloudflare/worker.js:554:  const authHeader = request.headers.get("X-Admin-Secret") || request.headers.get("Authorization") || "";
+cloudflare/worker.js:555:  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : authHeader;
+cloudflare/worker.js:558:    return json({ success: false, error: "Unauthorized admin secret" }, 401);
+cloudflare/worker.js:562:  const users = await env.NEXUS_DB.prepare("SELECT email, plan, is_paid, created_at, last_login_at FROM users ORDER BY created_at DESC LIMIT 100").all();
+cloudflare/worker.js:585:    "access-control-allow-headers": "content-type, authorization, x-nexus-client-id",
+cloudflare/worker.js:624:    scope: "https://www.googleapis.com/auth/spreadsheets",
+cloudflare/worker.js:625:    aud: "https://oauth2.googleapis.com/token",
+cloudflare/worker.js:639:  const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+cloudflare/worker.js:642:    body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion }),
+cloudflare/worker.js:645:  if (!tokenResponse.ok || !tokenData.access_token) throw new Error(`Google OAuth failed: ${tokenData.error_description || tokenData.error || "unknown error"}`);
+cloudflare/worker.js:669:async function ensureSheetTab(sheetId, sheetTab, headers, authHeaders, cleanupLegacy = false) {
+cloudflare/worker.js:673:  let headerResponse = await fetch(headerUrl, { headers: authHeaders });
+cloudflare/worker.js:680:      headers: authHeaders,
+cloudflare/worker.js:693:    const clearResponse = await fetch(clearUrl, { method: "POST", headers: authHeaders, body: "{}" });
+cloudflare/worker.js:702:      headers: authHeaders,
+cloudflare/worker.js:711:async function appendSheetRows(sheetId, sheetTab, headers, rows, authHeaders, cleanupLegacy = false) {
+cloudflare/worker.js:712:  const headerState = await ensureSheetTab(sheetId, sheetTab, headers, authHeaders, cleanupLegacy);
+cloudflare/worker.js:719:    headers: authHeaders,
+cloudflare/worker.js:734:  const authHeaders = { authorization: `Bearer ${accessToken}`, "content-type": "application/json" };
+cloudflare/worker.js:771:    const leadsResult = await appendSheetRows(sheetId, leadsTab, LEADS_SHEET_HEADERS, leadRows, authHeaders, offset === 0);
+cloudflare/worker.js:772:    const outreachResult = await appendSheetRows(sheetId, outreachTab, OUTREACH_SHEET_HEADERS, outreachRows, authHeaders);
+cloudflare/worker.js:870:        headers: { authorization: `Bearer ${env.FIRECRAWL_API_KEY}`, "content-type": "application/json" },
+cloudflare/worker.js:1141:  if (!user) return json({ success: false, code: "AUTH_REQUIRED", error: "Please log in before starting a lead search" }, 401);
+cloudflare/worker.js:1165:  if (!user) return json({ success: false, code: "AUTH_REQUIRED", error: "Please log in to view your daily credits" }, 401);
+cloudflare/worker.js:1188:  if (!user) return json({ success: false, code: "AUTH_REQUIRED", error: "Please log in before enriching leads" }, 401);
+cloudflare/worker.js:1201:  if (!user) return json({ success: false, code: "AUTH_REQUIRED", error: "Please log in before starting a lead search" }, 401);
+cloudflare/worker.js:1225:  if (!user) return json({ success: false, code: "AUTH_REQUIRED", error: "Please log in before syncing leads" }, 401);
+cloudflare/worker.js:1242:      else if (request.method === "GET" && url.pathname === "/api/health") response = json({ status: "ok", providers: { google_places: Boolean(env.GOOGLE_MAP_API_NEW), google_places_keys: getGoogleMapsApiKeys(env).length, firecrawl: Boolean(env.FIRECRAWL_API_KEY), gemini: Boolean(env.GEMINI_API_KEY || env.GEMINI_OUTREACH_API_KEY), google_sheets: Boolean(env.GOOGLE_SERVICE_ACCOUNT_JSON || env.GOOGLESERVICES_JSON) }, auth: { database: Boolean(env.NEXUS_DB), credential_encryption: Boolean(env.NEXUS_CREDENTIALS_KEY) }, credits: { daily_free_leads: DAILY_FREE_LEAD_LIMIT, storage: env.NEXUS_CREDITS ? "kv" : "unavailable" }, routes: { signup: "/api/auth/signup", login: "/api/auth/login", me: "/api/auth/me", credentials: "/api/account/credentials", discover: "/api/discover", enrich: "/api/enrich", export: "/api/export", usage: "/api/usage", pricing: "/api/pricing", reviews: "/api/reviews", newsletter: "/api/newsletter" }, outreach_skills: Object.entries(OUTREACH_SKILLS).map(([key, value]) => ({ key, label: value.label })) });
+cloudflare/worker.js:1246:      else if (request.method === "GET" && url.pathname === "/api/auth/me") response = await handleMe(request, env);
+cloudflare/worker.js:1248:      else if (request.method === "POST" && url.pathname === "/api/auth/signup") response = await handleSignup(request, env);
+cloudflare/worker.js:1249:      else if (request.method === "POST" && url.pathname === "/api/auth/login") response = await handleLogin(request, env);
+cloudflare/worker.js:1250:      else if (request.method === "POST" && url.pathname === "/api/auth/logout") response = await handleLogout(request, env);
+backend/main.py:9:from google.oauth2.service_account import Credentials
+backend/main.py:119:                scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+backend/main.py:121:                client = gspread.authorize(creds)
+
+=== FORM SUBMISSION ANALYSIS ===
+frontend/app.js:61:                    const response = await fetch(this.apiBase + path, {
+frontend/app.js:190:                            const meRes = await fetch(this.apiBase + '/api/auth/me', {
+frontend/app.js:209:                        const res = await fetch(this.apiBase + '/api/usage', { headers });
+frontend/app.js:223:                        const res = await fetch(this.apiBase + '/api/reviews');
+frontend/app.js:267:                        const res = await fetch(this.apiBase + '/api/newsletter', { method: 'POST', headers, body: JSON.stringify({ email: this.newsletterEmail, source: this.showNewsletterPopup ? 'newsletter_popup' : 'successful_collection_popup' }) });
+frontend/app.js:285:                        const res = await fetch(this.apiBase + '/api/reviews', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.authToken }, body: JSON.stringify({ display_name: this.reviewName, role: this.reviewRole, rating: Number(this.reviewRating), message: this.reviewMessage }) });
+frontend/app.js:306:                        const res = await fetch(this.apiBase + '/api/account/credentials', { headers: { 'Authorization': 'Bearer ' + this.authToken } });
+frontend/app.js:318:                        const res = await fetch(this.apiBase + endpoint, {
+frontend/app.js:345:                            await fetch(this.apiBase + '/api/auth/logout', {
+frontend/app.js:366:                        const res = await fetch(this.apiBase + '/api/account/sheet-check', {
+frontend/app.js:395:                        const res = await fetch(this.apiBase + '/api/account/credentials', {
+frontend/app.js:493:                            const response = await fetch(this.apiBase + '/api/account/credentials', { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + this.authToken } });
+frontend/app.js:526:                        const res = await fetch(this.apiBase + '/api/usage', { headers });
+cloudflare/worker.js:313:    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}`, {
+cloudflare/worker.js:368:    const response = await fetch("https://api.resend.com/emails", {
+cloudflare/worker.js:639:  const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+cloudflare/worker.js:673:  let headerResponse = await fetch(headerUrl, { headers: authHeaders });
+cloudflare/worker.js:678:    const createResponse = await fetch(createUrl, {
+cloudflare/worker.js:693:    const clearResponse = await fetch(clearUrl, { method: "POST", headers: authHeaders, body: "{}" });
+cloudflare/worker.js:700:    const updateResponse = await fetch(updateUrl, {
+cloudflare/worker.js:717:  const response = await fetch(appendUrl, {
+cloudflare/worker.js:789:    return await fetch(url, { ...options, signal: controller.signal, redirect: "follow" });
+cloudflare/worker.js:1236:  async fetch(request, env) {

@@ -1,0 +1,23 @@
+name = "nexusleads-api"
+main = "worker.js"
+compatibility_date = "2026-08-08"
+workers_dev = true
+
+# API keys and Google credentials must be uploaded as encrypted Worker secrets.
+# Do not put secret values in this file or in GitHub.
+[secrets]
+required = [
+  "GOOGLE_MAP_API_NEW",
+  "GOOGLE_SERVICE_ACCOUNT_JSON",
+  "GOOGLE_SHEET_ID",
+  "FIRECRAWL_API_KEY",
+  "GEMINI_API_KEY",
+  "GEEKFLARE_API_KEY",
+  "ADMIN_NOTIFICATION_EMAIL",
+  "RESEND_API_KEY"
+]
+
+[vars]
+ALLOWED_ORIGINS = "https://jennymahmuda.github.io,http://localhost:5173,http://localhost:8787"
+GOOGLE_SHEET_TAB = "Leads"
+GEMINI_MODEL = "gemini-2.5-flash"

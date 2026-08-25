@@ -1,0 +1,93 @@
+{
+  "doctor": {
+    "name": "NexusLeads Full-Stack Doctor",
+    "version": "2.0.0"
+  },
+  "generated_at": "2026-08-25T23:27:49Z",
+  "repository": "jennyMahmuda/automation-scrapped",
+  "commit": "de6293d059502ccdc9f8d9f67afbbcbbab7a63a3",
+  "run_id": "32910789301",
+  "frontend": "https://leads.sayadbayezid.com/",
+  "backend": "https://nexusleads-api.mahmudajenny6.workers.dev",
+  "mode": "READ_ONLY",
+  "overall_status": "DEGRADED",
+  "health_score": 0,
+  "issue_count": 7,
+  "issues": [
+    {
+      "issue_id": "FRONTEND-CONSOLE-1",
+      "severity": "HIGH",
+      "category": "FRONTEND",
+      "title": "Browser console error detected",
+      "description": "Access to fetch at 'https://nexusleads-api.mahmudajenny6.workers.dev/api/usage' from origin 'https://leads.sayadbayezid.com' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "root_path": "frontend/index.html",
+      "confidence": "CONFIRMED",
+      "remediation": "MANUAL_INVESTIGATION"
+    },
+    {
+      "issue_id": "FRONTEND-CONSOLE-2",
+      "severity": "HIGH",
+      "category": "FRONTEND",
+      "title": "Browser console error detected",
+      "description": "Failed to load resource: net::ERR_FAILED",
+      "root_path": "frontend/index.html",
+      "confidence": "CONFIRMED",
+      "remediation": "MANUAL_INVESTIGATION"
+    },
+    {
+      "issue_id": "FRONTEND-CONSOLE-3",
+      "severity": "HIGH",
+      "category": "FRONTEND",
+      "title": "Browser console error detected",
+      "description": "Access to fetch at 'https://nexusleads-api.mahmudajenny6.workers.dev/api/reviews' from origin 'https://leads.sayadbayezid.com' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "root_path": "frontend/index.html",
+      "confidence": "CONFIRMED",
+      "remediation": "MANUAL_INVESTIGATION"
+    },
+    {
+      "issue_id": "FRONTEND-CONSOLE-4",
+      "severity": "HIGH",
+      "category": "FRONTEND",
+      "title": "Browser console error detected",
+      "description": "Failed to load resource: net::ERR_FAILED",
+      "root_path": "frontend/index.html",
+      "confidence": "CONFIRMED",
+      "remediation": "MANUAL_INVESTIGATION"
+    },
+    {
+      "issue_id": "NETWORK-1",
+      "severity": "HIGH",
+      "category": "NETWORK",
+      "title": "Browser network request failed",
+      "description": "https://nexusleads-api.mahmudajenny6.workers.dev/api/usage",
+      "root_path": null,
+      "confidence": "CONFIRMED",
+      "remediation": "MANUAL_INVESTIGATION"
+    },
+    {
+      "issue_id": "NETWORK-2",
+      "severity": "HIGH",
+      "category": "NETWORK",
+      "title": "Browser network request failed",
+      "description": "https://nexusleads-api.mahmudajenny6.workers.dev/api/reviews",
+      "root_path": null,
+      "confidence": "CONFIRMED",
+      "remediation": "MANUAL_INVESTIGATION"
+    },
+    {
+      "issue_id": "NETWORK-3",
+      "severity": "HIGH",
+      "category": "NETWORK",
+      "title": "Browser network request failed",
+      "description": "https://www.google-analytics.com/g/collect?v=2&tid=G-7FPD269E1J&gtm=45je68o1v9261120831za200zd9261120831&_p=1787700468070&gcd=13l3l3l3l1l1&npa=0&dma=0&are=1&cid=413535318.1787700469&frm=0&ngs=1&pscdl=noapi&rcb=14&sr=1280x720&uaa=x86&uab=64&uafvl=Not%253DA%253FBrand%3B99.0.0.0%7CHeadlessChrome%3B151.0.7922.34%7CChromium%3B151.0.7922.34&uam=&uamb=0&uap=Linux&uapv=&uaw=0&ul=en-us&_s=1&tag_exp=115938465~115938468~118897920~118897930~119259606~119367802~119367810~120213116~120385422&sid=1787700468&sct=1&seg=0&dl=https%3A%2F%2Fleads.sayadbayezid.com%2F&dt=NexusLeads%20-%20AI-Powered%20B2B%20Lead%20Scraper%20%26%20Verifier&en=page_view&_fv=1&_nsi=1&_ss=1&_ee=1&ep.anonymize_ip=true&tfd=703",
+      "root_path": null,
+      "confidence": "CONFIRMED",
+      "remediation": "MANUAL_INVESTIGATION"
+    }
+  ],
+  "security": {
+    "secret_values_exposed": false,
+    "secret_values_stored": false,
+    "secret_names_only": true
+  }
+}

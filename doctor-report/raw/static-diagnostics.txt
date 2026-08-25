@@ -1,0 +1,192 @@
+=== TODO / FIXME ===
+
+=== COMMON RUNTIME RISK PATTERNS ===
+frontend/app.js:39:                currentUser: null,
+frontend/app.js:40:                authToken: localStorage.getItem('nexusleads-token') || '',
+frontend/app.js:64:                        body: JSON.stringify(payload)
+frontend/app.js:182:                    let cid = localStorage.getItem('nexusleads-client-id');
+frontend/app.js:185:                        localStorage.setItem('nexusleads-client-id', cid);
+frontend/app.js:200:                                localStorage.removeItem('nexusleads-token');
+frontend/app.js:231:                    if (localStorage.getItem('nexusleads-success-popup-shown') === '1') return;
+frontend/app.js:232:                    localStorage.setItem('nexusleads-success-popup-shown', '1');
+frontend/app.js:240:                    if (localStorage.getItem('nexusleads-newsletter-popup-shown') === '1') return;
+frontend/app.js:246:                    localStorage.setItem('nexusleads-newsletter-popup-shown', '1');
+frontend/app.js:267:                        const res = await fetch(this.apiBase + '/api/newsletter', { method: 'POST', headers, body: JSON.stringify({ email: this.newsletterEmail, source: this.showNewsletterPopup ? 'newsletter_popup' : 'successful_collection_popup' }) });
+frontend/app.js:285:                        const res = await fetch(this.apiBase + '/api/reviews', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.authToken }, body: JSON.stringify({ display_name: this.reviewName, role: this.reviewRole, rating: Number(this.reviewRating), message: this.reviewMessage }) });
+frontend/app.js:301:                    try { return new Date(value).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }); } catch { return ''; }
+frontend/app.js:321:                            body: JSON.stringify({ email: this.authEmail, password: this.authPassword })
+frontend/app.js:326:                        localStorage.setItem('nexusleads-token', data.token);
+frontend/app.js:352:                    this.currentUser = null;
+frontend/app.js:353:                    localStorage.removeItem('nexusleads-token');
+frontend/app.js:369:                            body: JSON.stringify({ sheet_id: this.sheetId })
+frontend/app.js:398:                            body: JSON.stringify({ 
+frontend/app.js:452:                        const saved = JSON.parse(localStorage.getItem(key) || '{}');
+frontend/app.js:470:                        localStorage.setItem(key, JSON.stringify({ leads: this.leads.slice(-500), metrics: this.metrics, savedAt }));
+frontend/app.js:480:                    if (key) localStorage.removeItem(key);
+frontend/app.js:498:                        if (key) localStorage.removeItem(key);
+frontend/app.js:499:                        localStorage.removeItem('nexusleads-sheet-config');
+frontend/app.js:561:                        const saved = JSON.parse(localStorage.getItem('nexusleads-sheet-config') || '{}');
+frontend/app.js:573:                        localStorage.setItem('nexusleads-sheet-config', JSON.stringify({ sheetId: this.sheetId, autoPush: this.autoPushEnabled, maxResults: Number(this.maxResults), pushBatchSize: Number(this.pushBatchSize) }));
+frontend/dashboard.html:338:                                        <a :href="lead.email ? 'mailto:' + lead.email : null" class="text-cyan-500 hover:underline" x-show="lead.email" x-text="lead.email"></a>
+cloudflare/worker.js:137:  if (!env.NEXUS_CREDITS) return { clientKey, usageKey, credits: creditSummary(0, "unavailable") };
+cloudflare/worker.js:138:  const stored = await env.NEXUS_CREDITS.get(usageKey, { type: "json" }).catch(() => null);
+cloudflare/worker.js:149:  await env.NEXUS_CREDITS.put(current.usageKey, JSON.stringify({ used: nextUsed, updated_at: new Date().toISOString() }), { expirationTtl: CREDIT_USAGE_TTL });
+cloudflare/worker.js:150:  await env.NEXUS_CREDITS.put(`reservation:${reservationId}`, JSON.stringify({ usage_key: current.usageKey, reserved: requested, settled: false, created_at: new Date().toISOString() }), { expirationTtl: CREDIT_RESERVATION_TTL });
+cloudflare/worker.js:156:  if (!env.NEXUS_CREDITS || !reservationId) return { credits: (await readDailyCredits(request, body, env)).credits, refunded: 0 };
+cloudflare/worker.js:158:  const reservation = await env.NEXUS_CREDITS.get(reservationKey, { type: "json" }).catch(() => null);
+cloudflare/worker.js:161:  const current = await env.NEXUS_CREDITS.get(reservation.usage_key, { type: "json" }).catch(() => ({ used: 0 }));
+cloudflare/worker.js:164:  await env.NEXUS_CREDITS.put(reservation.usage_key, JSON.stringify({ used: nextUsed, updated_at: new Date().toISOString() }), { expirationTtl: CREDIT_USAGE_TTL });
+cloudflare/worker.js:165:  await env.NEXUS_CREDITS.put(reservationKey, JSON.stringify({ ...reservation, settled: true, actual, settled_at: new Date().toISOString() }), { expirationTtl: CREDIT_RESERVATION_TTL });
+cloudflare/worker.js:207:  if (!env.NEXUS_CREDENTIALS_KEY) throw new Error("Credential encryption is not configured");
+cloudflare/worker.js:208:  const keyBytes = base64UrlToBytes(env.NEXUS_CREDENTIALS_KEY);
+cloudflare/worker.js:217:  if (!value || !env.NEXUS_CREDENTIALS_KEY) return null;
+cloudflare/worker.js:219:  if (parts.length !== 3 || parts[0] !== "v1") return null;
+cloudflare/worker.js:220:  const keyBytes = base64UrlToBytes(env.NEXUS_CREDENTIALS_KEY);
+cloudflare/worker.js:221:  if (keyBytes.byteLength !== 32) return null;
+cloudflare/worker.js:227:    return null;
+cloudflare/worker.js:237:  if (!env.NEXUS_DB) return null;
+cloudflare/worker.js:240:  if (!token) return null;
+cloudflare/worker.js:242:  await env.NEXUS_DB.prepare("ALTER TABLE users ADD COLUMN is_paid INTEGER NOT NULL DEFAULT 0").run().catch(() => null);
+cloudflare/worker.js:243:  const row = await env.NEXUS_DB.prepare("SELECT u.id, u.email, u.plan, u.is_paid, u.email_verified, s.expires_at FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.id = ? AND s.expires_at > ?").bind(sessionId, Date.now()).first();
+cloudflare/worker.js:244:  if (!row) return null;
+cloudflare/worker.js:245:  await env.NEXUS_DB.prepare("UPDATE sessions SET last_seen_at = ? WHERE id = ?").bind(new Date().toISOString(), sessionId).run().catch(() => null);
+cloudflare/worker.js:253:  await env.NEXUS_DB.prepare("INSERT INTO sessions (id, user_id, expires_at, created_at, last_seen_at) VALUES (?, ?, ?, ?, ?)").bind(sessionId, userId, Date.now() + 30 * 24 * 60 * 60 * 1000, now, now).run();
+cloudflare/worker.js:254:  await env.NEXUS_DB.prepare("UPDATE users SET last_login_at = ?, updated_at = ? WHERE id = ?").bind(now, now, userId).run();
+cloudflare/worker.js:259:  const row = await env.NEXUS_DB.prepare("SELECT maps_key_ciphertext, maps_key_last4, sheets_json_ciphertext, sheets_account_email, gemini_key_ciphertext FROM api_credentials WHERE user_id = ?").bind(userId).first();
+cloudflare/worker.js:260:  if (!row) return { mapsApiKey: null, mapsLast4: null, sheetsJson: null, sheetsAccountEmail: null, geminiApiKey: null };
+cloudflare/worker.js:263:    mapsLast4: row.maps_key_last4 || null,
+cloudflare/worker.js:265:    sheetsAccountEmail: row.sheets_account_email || null,
+cloudflare/worker.js:273:  const effective = { ...env };
+cloudflare/worker.js:291:  const raw = env.GOOGLE_SERVICE_ACCOUNT_JSON || env.GOOGLESERVICES_JSON || "";
+cloudflare/worker.js:294:    const parsed = JSON.parse(raw);
+cloudflare/worker.js:304:  const body = await request.json().catch(() => null);
+cloudflare/worker.js:307:  const serviceAccount = credentials.sheetsJson || env.GOOGLE_SERVICE_ACCOUNT_JSON || env.GOOGLESERVICES_JSON;
+cloudflare/worker.js:332:  if (!env.NEXUS_DB) return json({ success: true, reviews: [] });
+cloudflare/worker.js:334:    const rows = await env.NEXUS_DB.prepare("SELECT id, display_name, role, rating, message, created_at FROM public_reviews WHERE status = 'published' ORDER BY created_at DESC LIMIT 24").all();
+cloudflare/worker.js:339:  const body = await request.json().catch(() => null);
+cloudflare/worker.js:346:  await env.NEXUS_DB.prepare("INSERT INTO public_reviews (id, user_id, display_name, role, rating, message, status, created_at) VALUES (?, ?, ?, ?, ?, ?, 'published', ?)").bind(id, user.id, displayName, role, rating, message, new Date().toISOString()).run();
+cloudflare/worker.js:351:  const body = await request.json().catch(() => null);
+cloudflare/worker.js:354:  if (!env.NEXUS_DB) return json({ success: false, error: "Newsletter storage is not configured." }, 503);
+cloudflare/worker.js:355:  const user = await sessionUser(request, env).catch(() => null);
+cloudflare/worker.js:356:  await env.NEXUS_DB.prepare("INSERT INTO newsletter_subscribers (email, user_id, source, created_at, status) VALUES (?, ?, ?, ?, 'active') ON CONFLICT(email) DO UPDATE SET user_id = COALESCE(excluded.user_id, newsletter_subscribers.user_id), source = excluded.source, status = 'active'").bind(email, user?.id || null, String(body?.source || "success_popup").slice(0, 60), new Date().toISOString()).run();
+cloudflare/worker.js:361:  const adminEmail = env.ADMIN_NOTIFICATION_EMAIL;
+cloudflare/worker.js:362:  const resendKey = env.RESEND_API_KEY;
+cloudflare/worker.js:371:      body: JSON.stringify({
+cloudflare/worker.js:375:        text: `Event: ${event}\nTime: ${new Date().toISOString()}\nDetails:\n${JSON.stringify(data, null, 2)}\n\n---\nSecurely sent from NexusLeads Backend.`
+cloudflare/worker.js:392:  if (!env.NEXUS_DB) return json({ success: false, error: "Account database is not configured" }, 503);
+cloudflare/worker.js:393:  const body = await request.json().catch(() => null);
+cloudflare/worker.js:397:  const existing = await env.NEXUS_DB.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
+cloudflare/worker.js:402:  await env.NEXUS_DB.prepare("INSERT INTO users (id, email, password_hash, email_verified, plan, created_at, updated_at) VALUES (?, ?, ?, 1, 'free', ?, ?)").bind(id, email, passwordHash, now, now).run();
+cloudflare/worker.js:405:  await notifyAdmin("New User Registration", { user_id: id, email: email, plan: "free" }, env).catch(() => null);
+cloudflare/worker.js:412:  if (!env.NEXUS_DB) return json({ success: false, error: "Account database is not configured" }, 503);
+cloudflare/worker.js:413:  const body = await request.json().catch(() => null);
+cloudflare/worker.js:416:  const user = await env.NEXUS_DB.prepare("SELECT id, email, password_hash, plan, email_verified FROM users WHERE email = ?").bind(email).first();
+cloudflare/worker.js:420:  await notifyAdmin("User Login", { user_id: user.id, email: user.email, plan: user.plan }, env).catch(() => null);
+cloudflare/worker.js:435:  if (env.NEXUS_DB && token) {
+cloudflare/worker.js:437:    await env.NEXUS_DB.prepare("DELETE FROM sessions WHERE id = ?").bind(sessionId).run();
+cloudflare/worker.js:454:      sheets_account_email: credentials.sheetsAccountEmail || null,
+cloudflare/worker.js:464:  if (!env.NEXUS_DB || !env.NEXUS_CREDENTIALS_KEY) return json({ success: false, error: "Secure credential storage is not configured" }, 503);
+cloudflare/worker.js:465:  const body = await request.json().catch(() => null);
+cloudflare/worker.js:466:  const existing = await env.NEXUS_DB.prepare("SELECT maps_key_ciphertext, maps_key_last4, sheets_json_ciphertext, sheets_account_email, gemini_key_ciphertext, created_at FROM api_credentials WHERE user_id = ?").bind(user.id).first();
+cloudflare/worker.js:467:  let mapsCipher = existing?.maps_key_ciphertext || null;
+cloudflare/worker.js:468:  let mapsLast4 = existing?.maps_key_last4 || null;
+cloudflare/worker.js:469:  let sheetsCipher = existing?.sheets_json_ciphertext || null;
+cloudflare/worker.js:470:  let sheetsEmail = existing?.sheets_account_email || null;
+cloudflare/worker.js:471:  let geminiCipher = existing?.gemini_key_ciphertext || null;
+cloudflare/worker.js:475:    mapsCipher = mapsKey ? await encryptSecret(mapsKey, env) : null;
+cloudflare/worker.js:476:    mapsLast4 = mapsKey ? mapsKey.slice(-4) : null;
+cloudflare/worker.js:480:    geminiCipher = geminiKey ? await encryptSecret(geminiKey, env) : null;
+cloudflare/worker.js:485:  if (serviceJsonField !== undefined) {
+cloudflare/worker.js:490:      try { parsed = JSON.parse(serviceJson); } catch { return json({ success: false, error: "Service account JSON is not valid JSON." }, 400); }
+cloudflare/worker.js:496:      sheetsCipher = null;
+cloudflare/worker.js:497:      sheetsEmail = null;
+cloudflare/worker.js:501:  await env.NEXUS_DB.prepare("INSERT INTO api_credentials (user_id, maps_key_ciphertext, maps_key_last4, sheets_json_ciphertext, sheets_account_email, gemini_key_ciphertext, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET maps_key_ciphertext = excluded.maps_key_ciphertext, maps_key_last4 = excluded.maps_key_last4, sheets_json_ciphertext = excluded.sheets_json_ciphertext, sheets_account_email = excluded.sheets_account_email, gemini_key_ciphertext = excluded.gemini_key_ciphertext, updated_at = excluded.updated_at").bind(user.id, mapsCipher, mapsLast4, sheetsCipher, sheetsEmail, geminiCipher, existing?.created_at || now, now).run();
+cloudflare/worker.js:518:  if (!env.NEXUS_DB) return json({ success: false, error: "Database is not configured" }, 503);
+cloudflare/worker.js:519:  await env.NEXUS_DB.prepare("DELETE FROM api_credentials WHERE user_id = ?").bind(user.id).run();
+cloudflare/worker.js:526:  const adminSecret = env.ADMIN_SECRET || "nexusleads-admin-2026-secret";
+cloudflare/worker.js:530:  const body = await request.json().catch(() => null);
+cloudflare/worker.js:534:  if (!env.NEXUS_DB) return json({ success: false, error: "Database not configured" }, 503);
+cloudflare/worker.js:535:  await env.NEXUS_DB.prepare("ALTER TABLE users ADD COLUMN is_paid INTEGER NOT NULL DEFAULT 0").run().catch(() => null);
+cloudflare/worker.js:537:  const user = await env.NEXUS_DB.prepare("SELECT id, email, plan, is_paid FROM users WHERE email = ?").bind(email).first();
+cloudflare/worker.js:541:  await env.NEXUS_DB.prepare("UPDATE users SET is_paid = 1, plan = 'paid', updated_at = ? WHERE id = ?").bind(now, user.id).run();
+cloudflare/worker.js:544:  await notifyAdmin("BYOK Paid Activation", { user_email: email, status: "enabled", triggered_by: "manual_admin_action" }, env).catch(() => null);
+cloudflare/worker.js:556:  const adminSecret = env.ADMIN_SECRET || "nexusleads-admin-2026-secret";
+cloudflare/worker.js:560:  if (!env.NEXUS_DB) return json({ success: false, error: "Database not configured" }, 503);
+cloudflare/worker.js:562:  const users = await env.NEXUS_DB.prepare("SELECT email, plan, is_paid, created_at, last_login_at FROM users ORDER BY created_at DESC LIMIT 100").all();
+cloudflare/worker.js:567:  return new Response(JSON.stringify(data), {
+cloudflare/worker.js:574:  return (env.ALLOWED_ORIGINS || "https://jennymahmuda.github.io,http://localhost:5173,http://localhost:8787")
+cloudflare/worker.js:617:  const account = typeof serviceAccountJson === "string" ? JSON.parse(serviceAccountJson) : serviceAccountJson;
+cloudflare/worker.js:621:  const header = textBase64Url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+cloudflare/worker.js:622:  const claim = textBase64Url(JSON.stringify({
+cloudflare/worker.js:650:  if (!input || typeof input !== "string") return null;
+cloudflare/worker.js:660:  const leadsTab = sanitizeSheetTitle(requestBody.leads_sheet_tab || requestBody.sheet_tab || env.GOOGLE_SHEET_TAB || "Leads", "Leads");
+cloudflare/worker.js:661:  let outreachTab = sanitizeSheetTitle(requestBody.outreach_sheet_tab || env.GOOGLE_OUTREACH_SHEET_TAB || "Outreach", "Outreach");
+cloudflare/worker.js:681:      body: JSON.stringify({ requests: [{ addSheet: { properties: { title: sheetTab } } }] }),
+cloudflare/worker.js:703:      body: JSON.stringify({ majorDimension: "ROWS", values: [headers] }),
+cloudflare/worker.js:720:    body: JSON.stringify({ majorDimension: "ROWS", values: rows }),
+cloudflare/worker.js:724:  return { sheet_tab: sheetTab, updated_range: data.updates?.updatedRange || null, header_written: headerState.header_written, rows: rows.length };
+cloudflare/worker.js:728:  const sheetId = extractSheetId(requestBody.sheet_id) || env.GOOGLE_SHEET_ID;
+cloudflare/worker.js:729:  const serviceAccount = env.GOOGLE_SERVICE_ACCOUNT_JSON || env.GOOGLESERVICES_JSON;
+cloudflare/worker.js:779:    sheet_tabs: { leads: batchResults[0]?.leads || null, outreach: batchResults[0]?.outreach || null },
+cloudflare/worker.js:796:  if (!url || typeof url !== "string") return null;
+cloudflare/worker.js:799:    if (!["http:", "https:"].includes(parsed.protocol)) return null;
+cloudflare/worker.js:802:    return null;
+cloudflare/worker.js:835:  return null;
+cloudflare/worker.js:842:    if (!match) return null;
+cloudflare/worker.js:849:      return null;
+cloudflare/worker.js:862:  if (!website) return { email: null, verification: "Maps verified; no public website supplied" };
+cloudflare/worker.js:867:    if (env.FIRECRAWL_API_KEY) {
+cloudflare/worker.js:870:        headers: { authorization: `Bearer ${env.FIRECRAWL_API_KEY}`, "content-type": "application/json" },
+cloudflare/worker.js:871:        body: JSON.stringify({ url: website, formats: ["markdown"], onlyMainContent: true }),
+cloudflare/worker.js:885:    source = env.FIRECRAWL_API_KEY ? "Firecrawl website scrape unavailable" : "Website fetch unavailable";
+cloudflare/worker.js:899:  if (!env.GEMINI_API_KEY || !researchPrompt) return {};
+cloudflare/worker.js:900:  const model = env.GEMINI_MODEL || "gemini-1.5-flash";
+cloudflare/worker.js:901:  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`;
+cloudflare/worker.js:907:      body: JSON.stringify({ contents: [{ parts: [{ text: instruction }] }], generationConfig: { responseMimeType: "application/json", temperature: 0 } }),
+cloudflare/worker.js:913:    const parsed = JSON.parse(cleaned);
+cloudflare/worker.js:925:  if (!env.GEMINI_API_KEY) return locationPrompt;
+cloudflare/worker.js:926:  const model = env.GEMINI_MODEL || "gemini-1.5-flash";
+cloudflare/worker.js:927:  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`;
+cloudflare/worker.js:933:      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+cloudflare/worker.js:945:  if (!env.GEMINI_API_KEY) return {};
+cloudflare/worker.js:946:  const model = env.GEMINI_MODEL || "gemini-1.5-flash";
+cloudflare/worker.js:947:  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`;
+cloudflare/worker.js:950:    JSON.stringify({ name: lead.name, address: lead.address, category: lead.category, website: lead.website, rating: lead.rating }),
+cloudflare/worker.js:955:    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } }),
+cloudflare/worker.js:960:  try {   return JSON.parse(raw); } catch { return {}; }
+cloudflare/worker.js:989:  const apiKey = env.GEMINI_OUTREACH_API_KEY || env.GEMINI_API_KEY;
+cloudflare/worker.js:991:  const model = env.GEMINI_OUTREACH_MODEL || env.GEMINI_MODEL || "gemini-1.5-flash";
+cloudflare/worker.js:997:    `Sender profile: ${JSON.stringify(OUTREACH_PROFILE)}`,
+cloudflare/worker.js:1000:    `Lead: ${JSON.stringify({ name: lead.name, category: lead.category, address: lead.address, website: lead.website, rating: lead.rating, facebook: lead.facebook, instagram: lead.instagram, twitter: lead.twitter, linkedin: lead.linkedin })}`,
+cloudflare/worker.js:1006:      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json", temperature: 0.2 } }),
+cloudflare/worker.js:1011:    const parsed = JSON.parse(raw.replace(/^```json\s*/i, "").replace(/\s*```$/i, "").trim());
+cloudflare/worker.js:1043:    place_id: place.id || null,
+cloudflare/worker.js:1046:    phone: place.internationalPhoneNumber ? `'${place.internationalPhoneNumber}` : null,
+cloudflare/worker.js:1047:    email: null,
+cloudflare/worker.js:1050:    rating: place.rating ?? null,
+cloudflare/worker.js:1054:    facebook: null,
+cloudflare/worker.js:1055:    instagram: null,
+cloudflare/worker.js:1056:    twitter: null,
+cloudflare/worker.js:1057:    linkedin: null,
+cloudflare/worker.js:1062:  return [env.GOOGLE_MAP_API_NEW, env.GOOGLE_MAP_API_NEW_2, env.GOOGLE_MAP_API_NEW_3].filter(Boolean);
+cloudflare/worker.js:1081:    body: JSON.stringify(requestBody),
+cloudflare/worker.js:1124:    const websiteData = await websiteEnrichment(lead.website, env).catch(() => ({ email: null, facebook: null, instagram: null, twitter: null, linkedin: null, verification: "Website enrichment unavailable" }));
+cloudflare/worker.js:1126:    lead.facebook = websiteData.facebook || null;
+cloudflare/worker.js:1127:    lead.instagram = websiteData.instagram || null;
+cloudflare/worker.js:1128:    lead.twitter = websiteData.twitter || null;
+cloudflare/worker.js:1129:    lead.linkedin = websiteData.linkedin || null;
+cloudflare/worker.js:1131:    if (body.enrich_with_ai && env.GEMINI_API_KEY) Object.assign(lead, await geminiEnrichment(lead, env));
+cloudflare/worker.js:1138:  const body = await request.json().catch(() => null);
+cloudflare/worker.js:1144:  let reservation = null;
+cloudflare/worker.js:1147:    const isByok = Boolean(userEnv.GOOGLE_MAP_API_NEW);
+cloudflare/worker.js:1154:    if (env.NEXUS_DB) await env.NEXUS_DB.prepare("INSERT INTO search_runs (id, user_id, keyword, location, requested_count, candidate_count, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(randomId(), user.id, search.keyword, search.location, search.target, candidates.length, new Date().toISOString()).run().catch(() => null);
+cloudflare/worker.js:1156:    return json({ success: true, stage: "discovered", keyword: search.keyword, location: search.location, target: search.target, candidate_count: candidates.length, candidates, reservation_id: reservation?.reservationId || "", credits, byok: { maps: Boolean(userEnv.GOOGLE_MAP_API_NEW), service_account_available: Boolean(userEnv.GOOGLE_SERVICE_ACCOUNT_JSON || userEnv.GOOGLESERVICES_JSON) }, paging: { max_pages: 3, provider_limit: 60 } });
+cloudflare/worker.js:1158:    if (reservation?.reservationId) await settleDailyCredits(request, { ...quotaBody, reservation_id: reservation.reservationId, actual_leads: 0 }, env).catch(() => null);
+cloudflare/worker.js:1184:  const body = await request.json().catch(() => null);
+cloudflare/worker.js:1191:    return json({ success: true, stage: "enriched", count: leads.length, leads, batch_index: body.batch_index ?? null });
+cloudflare/worker.js:1198:  const body = await request.json().catch(() => null);
+cloudflare/worker.js:1219:  const body = await request.json().catch(() => null);
+cloudflare/worker.js:1230:  await notifyAdmin("Lead Sync Success", { user_email: user.email, count: leads.length, sheet_id: body.sheet_id }, env).catch(() => null);
+cloudflare/worker.js:1237:    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(request, env) });
+cloudflare/worker.js:1242:      else if (request.method === "GET" && url.pathname === "/api/health") response = json({ status: "ok", providers: { google_places: Boolean(env.GOOGLE_MAP_API_NEW), google_places_keys: getGoogleMapsApiKeys(env).length, firecrawl: Boolean(env.FIRECRAWL_API_KEY), gemini: Boolean(env.GEMINI_API_KEY || env.GEMINI_OUTREACH_API_KEY), google_sheets: Boolean(env.GOOGLE_SERVICE_ACCOUNT_JSON || env.GOOGLESERVICES_JSON) }, auth: { database: Boolean(env.NEXUS_DB), credential_encryption: Boolean(env.NEXUS_CREDENTIALS_KEY) }, credits: { daily_free_leads: DAILY_FREE_LEAD_LIMIT, storage: env.NEXUS_CREDITS ? "kv" : "unavailable" }, routes: { signup: "/api/auth/signup", login: "/api/auth/login", me: "/api/auth/me", credentials: "/api/account/credentials", discover: "/api/discover", enrich: "/api/enrich", export: "/api/export", usage: "/api/usage", pricing: "/api/pricing", reviews: "/api/reviews", newsletter: "/api/newsletter" }, outreach_skills: Object.entries(OUTREACH_SKILLS).map(([key, value]) => ({ key, label: value.label })) });
+cloudflare/worker.js:1266:      return withCors(json({ success: false, error: error instanceof Error ? error.message : "Unexpected backend error", stack: error instanceof Error ? error.stack : null }, 500), request, env);

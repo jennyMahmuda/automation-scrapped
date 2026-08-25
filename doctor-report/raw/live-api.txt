@@ -1,0 +1,6 @@
+/|HTTP 200|application/json; charset=utf-8
+/health|HTTP 404|application/json; charset=utf-8
+/api/health|HTTP 200|application/json; charset=utf-8
+/api|HTTP 404|application/json; charset=utf-8
+/docs|HTTP 404|application/json; charset=utf-8
+/openapi.json|HTTP 404|application/json; charset=utf-8

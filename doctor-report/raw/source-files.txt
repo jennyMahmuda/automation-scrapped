@@ -1,0 +1,11 @@
+.github/workflows/deploy-backend.yml
+.github/workflows/doctor.yml
+.github/workflows/enable-paid-user.yml
+.github/workflows/pages.yml
+backend/main.py
+cloudflare/worker.js
+cloudflare/wrangler-deploy.toml
+cloudflare/wrangler.toml
+frontend/app.js
+frontend/dashboard.html
+frontend/index.html

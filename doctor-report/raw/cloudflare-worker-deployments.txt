@@ -1,0 +1,92 @@
+
+ ⛅️ wrangler 4.126.0
+────────────────────
+Created:     2026-08-13T13:41:42.308Z
+Author:      undefined
+Source:      Secret Change
+Message:     -
+Version(s):  (100%) dd7179d7-bcf2-4bd1-bb3c-c89bd8f45f48
+                 Created:  2026-08-13T13:41:42.308Z
+                     Tag:  -
+                 Message:  -
+
+Created:     2026-08-13T13:41:44.167Z
+Author:      undefined
+Source:      Secret Change
+Message:     -
+Version(s):  (100%) bb81c6ee-17c3-4441-b305-d996d88ed9d9
+                 Created:  2026-08-13T13:41:44.167Z
+                     Tag:  -
+                 Message:  -
+
+Created:     2026-08-13T13:41:46.072Z
+Author:      undefined
+Source:      Secret Change
+Message:     -
+Version(s):  (100%) 7a6232f3-0d89-46e2-a7e7-876806d3299b
+                 Created:  2026-08-13T13:41:46.072Z
+                     Tag:  -
+                 Message:  -
+
+Created:     2026-08-17T23:23:58.263Z
+Author:      undefined
+Source:      Unknown (deployment)
+Message:     -
+Version(s):  (100%) a5da64c1-5309-496b-835f-5263dac671e4
+                 Created:  2026-08-17T23:23:57.855Z
+                     Tag:  -
+                 Message:  -
+
+Created:     2026-08-17T23:24:00.712Z
+Author:      undefined
+Source:      Secret Change
+Message:     -
+Version(s):  (100%) 9ea782af-fb0e-4458-8e50-e01dc8fe5ce0
+                 Created:  2026-08-17T23:24:00.712Z
+                     Tag:  -
+                 Message:  -
+
+Created:     2026-08-17T23:24:02.500Z
+Author:      undefined
+Source:      Secret Change
+Message:     -
+Version(s):  (100%) c4bc2ea4-d65c-4c6f-bc38-2fff8aaa6e61
+                 Created:  2026-08-17T23:24:02.500Z
+                     Tag:  -
+                 Message:  -
+
+Created:     2026-08-17T23:24:04.352Z
+Author:      undefined
+Source:      Secret Change
+Message:     -
+Version(s):  (100%) c2a86d29-99b4-4d4f-b861-d8443be0a0c0
+                 Created:  2026-08-17T23:24:04.352Z
+                     Tag:  -
+                 Message:  -
+
+Created:     2026-08-17T23:24:06.093Z
+Author:      undefined
+Source:      Secret Change
+Message:     -
+Version(s):  (100%) 16c453bf-7fbf-445b-8477-d62967c02d76
+                 Created:  2026-08-17T23:24:06.093Z
+                     Tag:  -
+                 Message:  -
+
+Created:     2026-08-17T23:24:07.930Z
+Author:      undefined
+Source:      Secret Change
+Message:     -
+Version(s):  (100%) 7d7ea841-cc0a-4cce-ab8f-1c524be3cd7d
+                 Created:  2026-08-17T23:24:07.930Z
+                     Tag:  -
+                 Message:  -
+
+Created:     2026-08-17T23:24:09.697Z
+Author:      undefined
+Source:      Secret Change
+Message:     -
+Version(s):  (100%) 36303206-36a0-42cf-87e7-6e8b7ff29a50
+                 Created:  2026-08-17T23:24:09.697Z
+                     Tag:  -
+                 Message:  -
