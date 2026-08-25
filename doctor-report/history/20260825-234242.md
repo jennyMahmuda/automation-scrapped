@@ -2,7 +2,7 @@
 
 **Status:** DEGRADED
 **Health Score:** 0/100
-**Generated:** 2026-08-25T23:27:49Z
+**Generated:** 2026-08-25T23:42:42Z
 
 ## Environment
 
@@ -86,7 +86,7 @@
 **Category:** NETWORK
 **Confidence:** CONFIRMED
 
-**Description:** https://www.google-analytics.com/g/collect?v=2&tid=G-7FPD269E1J&gtm=45je68o1v9261120831za200zd9261120831&_p=1787700468070&gcd=13l3l3l3l1l1&npa=0&dma=0&are=1&cid=413535318.1787700469&frm=0&ngs=1&pscdl=noapi&rcb=14&sr=1280x720&uaa=x86&uab=64&uafvl=Not%253DA%253FBrand%3B99.0.0.0%7CHeadlessChrome%3B151.0.7922.34%7CChromium%3B151.0.7922.34&uam=&uamb=0&uap=Linux&uapv=&uaw=0&ul=en-us&_s=1&tag_exp=115938465~115938468~118897920~118897930~119259606~119367802~119367810~120213116~120385422&sid=1787700468&sct=1&seg=0&dl=https%3A%2F%2Fleads.sayadbayezid.com%2F&dt=NexusLeads%20-%20AI-Powered%20B2B%20Lead%20Scraper%20%26%20Verifier&en=page_view&_fv=1&_nsi=1&_ss=1&_ee=1&ep.anonymize_ip=true&tfd=703
+**Description:** https://www.google-analytics.com/g/collect?v=2&tid=G-7FPD269E1J&gtm=45je68o1v9261120831za200zd9261120831&_p=1787701360890&gcd=13l3l3l3l1l1&npa=0&dma=0&are=1&cid=1784424758.1787701361&frm=0&ngs=1&pscdl=noapi&rcb=16&sr=1280x720&uaa=x86&uab=64&uafvl=Not%253DA%253FBrand%3B99.0.0.0%7CHeadlessChrome%3B151.0.7922.34%7CChromium%3B151.0.7922.34&uam=&uamb=0&uap=Linux&uapv=&uaw=0&ul=en-us&_s=1&tag_exp=115938466~115938468~118897920~118897930~119367802~119367810~120213116~120385422~120763598&sid=1787701361&sct=1&seg=0&dl=https%3A%2F%2Fleads.sayadbayezid.com%2F&dt=NexusLeads%20-%20AI-Powered%20B2B%20Lead%20Scraper%20%26%20Verifier&en=page_view&_fv=1&_nsi=1&_ss=1&_ee=1&ep.anonymize_ip=true&tfd=729
 
 **Remediation:** `MANUAL_INVESTIGATION`
 
