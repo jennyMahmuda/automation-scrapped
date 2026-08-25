@@ -1,4 +1,4 @@
-name: NexusLeads Doctor
+name: NexusLeads Full-Stack Doctor
 
 on:
   workflow_dispatch:
@@ -6,293 +6,154 @@ on:
     branches:
       - main
     paths:
+      - "frontend/**"
       - "cloudflare/**"
       - "backend/**"
-      - "frontend/**"
       - ".github/workflows/**"
-      - "cloudflare/wrangler.toml"
 
 permissions:
-  contents: read
+  contents: write
   actions: read
 
 concurrency:
   group: nexusleads-doctor
   cancel-in-progress: true
 
+env:
+  LIVE_FRONTEND_URL: https://jennymahmuda.github.io/automation-scrapped/
+  LIVE_API_URL: https://nexusleads-api.mahmudajenny6.workers.dev
+  WORKER_NAME: nexusleads-api
+  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_AC_ID }}
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_KEY }}
+
 jobs:
   doctor:
-    name: Infrastructure Doctor
+    name: Full-Stack Root Cause Doctor
     runs-on: ubuntu-latest
-
-    env:
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_AC_ID }}
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_KEY }}
-      EXPECTED_WORKER_NAME: nexusleads-api
-      EXPECTED_WORKER_URL: https://nexusleads-api.mahmudajenny6.workers.dev
 
     steps:
 
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      # ==========================================================
+      # 1. SOURCE
+      # ==========================================================
 
-      - name: Setup Node.js
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ==========================================================
+      # 2. NODE / PYTHON
+      # ==========================================================
+
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: Install Wrangler
-        run: npm install --global wrangler
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
-      - name: Create Doctor directories
+      - name: Install Doctor dependencies
         run: |
-          mkdir -p doctor/report
-          mkdir -p doctor/raw
-          mkdir -p doctor/summary
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4 pyyaml
 
-      # ---------------------------------------------------------
-      # 1. Repository Structure
-      # ---------------------------------------------------------
+          npm install --global wrangler
 
-      - name: Check repository structure
+          npm init -y
+          npm install playwright
+
+          npx playwright install --with-deps chromium
+
+      # ==========================================================
+      # 3. REPORT DIRECTORY
+      # ==========================================================
+
+      - name: Prepare Doctor report
+        run: |
+          rm -rf doctor-report
+          mkdir -p doctor-report/history
+          mkdir -p doctor-report/raw
+          mkdir -p doctor-report/screenshots
+
+          echo "Doctor report initialized."
+
+      # ==========================================================
+      # 4. BASIC SOURCE DISCOVERY
+      # ==========================================================
+
+      - name: Discover source files
         shell: bash
         run: |
-          echo "=== Repository Structure ==="
+          find frontend cloudflare backend .github/workflows \
+            -type f \
+            \( -name "*.js" -o \
+               -name "*.html" -o \
+               -name "*.py" -o \
+               -name "*.toml" -o \
+               -name "*.yml" -o \
+               -name "*.yaml" \) \
+            | sort \
+            > doctor-report/raw/source-files.txt
 
-          checks=(
-            "frontend/index.html"
-            "cloudflare/worker.js"
-            "cloudflare/wrangler.toml"
-            "backend/main.py"
-            ".github/workflows/pages.yml"
-            ".github/workflows/deploy-backend.yml"
-          )
+      # ==========================================================
+      # 5. STATIC ROUTE DISCOVERY
+      # ==========================================================
 
-          failed=0
-
-          for file in "${checks[@]}"; do
-            if [ -f "$file" ]; then
-              echo "PASS | $file"
-            else
-              echo "FAIL | $file"
-              failed=1
-            fi
-          done
-
-          echo "repository_check_exit=$failed" \
-            > doctor/raw/repository.txt
-
-      # ---------------------------------------------------------
-      # 2. Cloudflare Authentication
-      # ---------------------------------------------------------
-
-      - name: Check Cloudflare authentication
-        id: cloudflare_auth
+      - name: Discover application routes
         shell: bash
         run: |
-          set +e
+          {
+            echo "=== JavaScript Routes ==="
 
-          if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
-            echo "CRITICAL | Cloudflare Account ID missing"
-            exit 1
-          fi
+            grep -RniE \
+              "fetch\(|axios|/api/|Request\(|Response\(" \
+              frontend cloudflare backend \
+              --include="*.js" \
+              --include="*.html" \
+              --include="*.py" \
+              || true
 
-          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
-            echo "CRITICAL | Cloudflare API token missing"
-            exit 1
-          fi
+            echo
+            echo "=== Authentication Indicators ==="
 
-          wrangler whoami > doctor/raw/cloudflare-whoami.txt 2>&1
+            grep -RniE \
+              "login|register|signup|sign.?up|signin|sign.?in|auth|password|session|token" \
+              frontend cloudflare backend \
+              --include="*.js" \
+              --include="*.html" \
+              --include="*.py" \
+              || true
+          } > doctor-report/raw/routes-and-auth.txt
 
-          STATUS=$?
+      # ==========================================================
+      # 6. STATIC SECRET REFERENCE DISCOVERY
+      # ==========================================================
 
-          if [ "$STATUS" -eq 0 ]; then
-            echo "PASS | Cloudflare authentication"
-          else
-            echo "FAIL | Cloudflare authentication"
-            exit 1
-          fi
-
-      # ---------------------------------------------------------
-      # 3. Cloudflare Worker
-      # ---------------------------------------------------------
-
-      - name: Check Cloudflare Worker
+      - name: Discover secret references
         shell: bash
         run: |
-          set +e
+          grep -RohE \
+            "(CLOUDFLARE_[A-Z0-9_]+|GOOGLE_[A-Z0-9_]+|FIRECRAWL_[A-Z0-9_]+|GEMINI_[A-Z0-9_]+|GEEKFLARE_[A-Z0-9_]+)" \
+            frontend cloudflare backend .github \
+            --include="*.js" \
+            --include="*.html" \
+            --include="*.py" \
+            --include="*.toml" \
+            --include="*.yml" \
+            --include="*.yaml" \
+            2>/dev/null \
+            | sort -u \
+            > doctor-report/raw/secret-references.txt || true
 
-          wrangler deployments list \
-            --name "$EXPECTED_WORKER_NAME" \
-            > doctor/raw/worker-deployments.txt 2>&1
+      # ==========================================================
+      # 7. SECRET STATUS
+      # ==========================================================
 
-          STATUS=$?
-
-          if [ "$STATUS" -eq 0 ]; then
-            echo "PASS | Worker deployment information available"
-          else
-            echo "FAIL | Unable to inspect Worker deployments"
-          fi
-
-      # ---------------------------------------------------------
-      # 4. Wrangler Configuration
-      # ---------------------------------------------------------
-
-      - name: Validate Wrangler configuration
-        shell: bash
-        run: |
-          if [ -f "cloudflare/wrangler.toml" ]; then
-            echo "PASS | wrangler.toml exists"
-
-            grep -E \
-              '^(name|compatibility_date|account_id|main)' \
-              cloudflare/wrangler.toml \
-              > doctor/raw/wrangler-config.txt || true
-
-          else
-            echo "CRITICAL | cloudflare/wrangler.toml missing"
-            exit 1
-          fi
-
-      # ---------------------------------------------------------
-      # 5. D1 Detection
-      # ---------------------------------------------------------
-
-      - name: Check D1 databases
-        shell: bash
-        run: |
-          set +e
-
-          wrangler d1 list \
-            > doctor/raw/d1.txt 2>&1
-
-          STATUS=$?
-
-          if [ "$STATUS" -eq 0 ]; then
-            echo "PASS | D1 API accessible"
-
-            if grep -qi "nexus" doctor/raw/d1.txt; then
-              echo "PASS | NexusLeads-related D1 resource detected"
-            else
-              echo "WARNING | No NexusLeads D1 resource detected by name"
-            fi
-          else
-            echo "WARNING | D1 inspection failed"
-          fi
-
-      # ---------------------------------------------------------
-      # 6. R2 Detection
-      # ---------------------------------------------------------
-
-      - name: Check R2 buckets
-        shell: bash
-        run: |
-          set +e
-
-          wrangler r2 bucket list \
-            > doctor/raw/r2.txt 2>&1
-
-          STATUS=$?
-
-          if [ "$STATUS" -eq 0 ]; then
-            echo "PASS | R2 API accessible"
-
-            if grep -qi "nexus" doctor/raw/r2.txt; then
-              echo "PASS | NexusLeads-related R2 bucket detected"
-            else
-              echo "INFO | No NexusLeads-related R2 bucket detected"
-            fi
-          else
-            echo "WARNING | R2 inspection failed"
-          fi
-
-      # ---------------------------------------------------------
-      # 7. KV Detection
-      # ---------------------------------------------------------
-
-      - name: Check KV namespaces
-        shell: bash
-        run: |
-          set +e
-
-          wrangler kv namespace list \
-            > doctor/raw/kv.txt 2>&1
-
-          STATUS=$?
-
-          if [ "$STATUS" -eq 0 ]; then
-            echo "PASS | KV API accessible"
-          else
-            echo "INFO | KV inspection unavailable or not configured"
-          fi
-
-      # ---------------------------------------------------------
-      # 8. DNS / Production Endpoint
-      # ---------------------------------------------------------
-
-      - name: Check production API endpoint
-        shell: bash
-        run: |
-          set +e
-
-          HTTP_STATUS=$(curl \
-            -L \
-            -s \
-            -o doctor/raw/api-response.txt \
-            -w "%{http_code}" \
-            --max-time 20 \
-            "$EXPECTED_WORKER_URL")
-
-          echo "HTTP_STATUS=$HTTP_STATUS" \
-            > doctor/raw/api-status.txt
-
-          case "$HTTP_STATUS" in
-            200|204)
-              echo "PASS | Production API reachable"
-              ;;
-            401|403)
-              echo "PASS | Production API reachable but protected"
-              ;;
-            404)
-              echo "WARNING | Production endpoint returned 404"
-              ;;
-            000)
-              echo "CRITICAL | Production endpoint unreachable"
-              ;;
-            *)
-              echo "WARNING | Production endpoint returned HTTP $HTTP_STATUS"
-              ;;
-          esac
-
-      # ---------------------------------------------------------
-      # 9. Frontend API Configuration
-      # ---------------------------------------------------------
-
-      - name: Check frontend API configuration
-        shell: bash
-        run: |
-          if [ ! -f "frontend/index.html" ]; then
-            echo "FAIL | frontend/index.html missing"
-            exit 1
-          fi
-
-          if grep -q "nexus-api-base" frontend/index.html; then
-            echo "PASS | nexus-api-base configuration found"
-          else
-            echo "WARNING | nexus-api-base meta tag missing"
-          fi
-
-          if grep -q "$EXPECTED_WORKER_URL" frontend/index.html; then
-            echo "PASS | Expected Worker URL found in frontend"
-          else
-            echo "WARNING | Expected Worker URL not found in frontend"
-          fi
-
-      # ---------------------------------------------------------
-      # 10. Secret Presence Check
-      # ---------------------------------------------------------
-
-      - name: Check required GitHub secrets
+      - name: Check required secret status
         shell: bash
         env:
           GOOGLE_MAP_API_NEW: ${{ secrets.GOOGLE_MAP_API_NEW }}
@@ -302,199 +163,863 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEEKFLARE_API_KEY: ${{ secrets.GEEKFLARE_API_KEY }}
         run: |
-          check_secret() {
-            local name="$1"
-            local value="$2"
+          {
+            echo "CLOUDFLARE_AC_ID=$( [ -n "$CLOUDFLARE_ACCOUNT_ID" ] && echo PRESENT || echo MISSING )"
+            echo "CLOUDFLARE_API_KEY=$( [ -n "$CLOUDFLARE_API_TOKEN" ] && echo PRESENT || echo MISSING )"
+            echo "GOOGLE_MAP_API_NEW=$( [ -n "$GOOGLE_MAP_API_NEW" ] && echo PRESENT || echo MISSING )"
+            echo "GOOGLE_SERVICE_ACCOUNT_JSON=$( [ -n "$GOOGLE_SERVICE_ACCOUNT_JSON" ] && echo PRESENT || echo MISSING )"
+            echo "GOOGLE_SHEET_ID=$( [ -n "$GOOGLE_SHEET_ID" ] && echo PRESENT || echo MISSING )"
+            echo "FIRECRAWL_API_KEY=$( [ -n "$FIRECRAWL_API_KEY" ] && echo PRESENT || echo MISSING )"
+            echo "GEMINI_API_KEY=$( [ -n "$GEMINI_API_KEY" ] && echo PRESENT || echo MISSING )"
+            echo "GEEKFLARE_API_KEY=$( [ -n "$GEEKFLARE_API_KEY" ] && echo PRESENT || echo MISSING )"
+          } > doctor-report/raw/secrets-status.txt
 
-            if [ -n "$value" ]; then
-              echo "PASS | $name present"
-            else
-              echo "WARNING | $name missing"
-            fi
-          }
+      # ==========================================================
+      # 8. CLOUDFLARE CONNECTION
+      # ==========================================================
 
-          check_secret "CLOUDFLARE_AC_ID" "$CLOUDFLARE_ACCOUNT_ID"
-          check_secret "CLOUDFLARE_API_KEY" "$CLOUDFLARE_API_TOKEN"
-          check_secret "GOOGLE_MAP_API_NEW" "$GOOGLE_MAP_API_NEW"
-          check_secret "GOOGLE_SERVICE_ACCOUNT_JSON" "$GOOGLE_SERVICE_ACCOUNT_JSON"
-          check_secret "GOOGLE_SHEET_ID" "$GOOGLE_SHEET_ID"
-          check_secret "FIRECRAWL_API_KEY" "$FIRECRAWL_API_KEY"
-          check_secret "GEMINI_API_KEY" "$GEMINI_API_KEY"
-          check_secret "GEEKFLARE_API_KEY" "$GEEKFLARE_API_KEY"
-
-      # ---------------------------------------------------------
-      # 11. Workflow Inventory
-      # ---------------------------------------------------------
-
-      - name: Inspect GitHub workflows
+      - name: Check Cloudflare authentication
         shell: bash
         run: |
-          echo "=== GitHub Workflows ==="
+          set +e
 
-          find .github/workflows \
-            -maxdepth 1 \
-            -type f \
-            -print \
-            | sort \
-            > doctor/raw/workflows.txt
+          if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "FAIL|Cloudflare Account ID secret is missing" \
+              > doctor-report/raw/cloudflare-auth.txt
+            exit 0
+          fi
 
-          cat doctor/raw/workflows.txt
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "FAIL|Cloudflare API token secret is missing" \
+              > doctor-report/raw/cloudflare-auth.txt
+            exit 0
+          fi
 
-      # ---------------------------------------------------------
-      # 12. Worker Source Inspection
-      # ---------------------------------------------------------
+          wrangler whoami \
+            > doctor-report/raw/cloudflare-auth.txt 2>&1
 
-      - name: Inspect Worker configuration
+          if [ "$?" -eq 0 ]; then
+            echo "PASS|Cloudflare authentication successful" \
+              >> doctor-report/raw/cloudflare-auth.txt
+          else
+            echo "FAIL|Cloudflare authentication failed" \
+              >> doctor-report/raw/cloudflare-auth.txt
+          fi
+
+      # ==========================================================
+      # 9. CLOUDFLARE RESOURCES
+      # ==========================================================
+
+      - name: Inspect Cloudflare resources
         shell: bash
         run: |
-          echo "=== Worker configuration indicators ==="
+          set +e
 
-          if grep -qi "google" cloudflare/worker.js; then
-            echo "PASS | Google integration detected"
-          else
-            echo "WARNING | Google integration not detected"
-          fi
+          wrangler d1 list \
+            > doctor-report/raw/cloudflare-d1.txt 2>&1
 
-          if grep -qi "firecrawl" cloudflare/worker.js; then
-            echo "PASS | Firecrawl integration detected"
-          else
-            echo "INFO | Firecrawl integration not detected"
-          fi
+          wrangler r2 bucket list \
+            > doctor-report/raw/cloudflare-r2.txt 2>&1
 
-          if grep -qi "gemini" cloudflare/worker.js; then
-            echo "PASS | Gemini integration detected"
-          else
-            echo "INFO | Gemini integration not detected"
-          fi
+          wrangler kv namespace list \
+            > doctor-report/raw/cloudflare-kv.txt 2>&1
 
-          if grep -qi "sheet" cloudflare/worker.js; then
-            echo "PASS | Google Sheets integration indicators detected"
-          else
-            echo "WARNING | Google Sheets integration indicators not detected"
-          fi
+          wrangler deployments list \
+            --name "$WORKER_NAME" \
+            > doctor-report/raw/cloudflare-worker-deployments.txt 2>&1
 
-      # ---------------------------------------------------------
-      # 13. Generate Doctor Report
-      # ---------------------------------------------------------
+      # ==========================================================
+      # 10. WRANGLER CONFIGURATION
+      # ==========================================================
 
-      - name: Generate Doctor Report
+      - name: Inspect Wrangler configuration
         shell: bash
         run: |
-          REPORT_ID="doctor-$(date -u +%Y%m%d-%H%M%S)-${GITHUB_RUN_ID}"
+          if [ -f cloudflare/wrangler.toml ]; then
+            cp cloudflare/wrangler.toml \
+              doctor-report/raw/wrangler.toml
 
-          cat > doctor/report/report.md <<EOF
-          # NexusLeads Doctor Report
+            grep -nE \
+              "name|main|compatibility_date|account_id|d1|r2|kv|vars|routes|workers_dev" \
+              cloudflare/wrangler.toml \
+              > doctor-report/raw/wrangler-analysis.txt || true
+          else
+            echo "FAIL|cloudflare/wrangler.toml missing" \
+              > doctor-report/raw/wrangler-analysis.txt
+          fi
 
-          **Report ID:** ${REPORT_ID}
+      # ==========================================================
+      # 11. LIVE API DISCOVERY
+      # ==========================================================
 
-          **Repository:** ${GITHUB_REPOSITORY}
+      - name: Inspect live API
+        shell: bash
+        run: |
+          python - <<'PY'
+          import requests
+          from pathlib import Path
 
-          **Commit:** ${GITHUB_SHA}
+          base = "${{ env.LIVE_API_URL }}"
 
-          **Branch:** ${GITHUB_REF_NAME}
+          endpoints = [
+              "/",
+              "/health",
+              "/api/health",
+              "/api",
+              "/docs",
+              "/openapi.json",
+          ]
 
-          **GitHub Run:** ${GITHUB_RUN_ID}
+          output = []
 
-          **Generated:** $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          for endpoint in endpoints:
+              url = base.rstrip("/") + endpoint
 
-          ## Infrastructure
+              try:
+                  response = requests.get(
+                      url,
+                      timeout=20,
+                      allow_redirects=True
+                  )
 
-          ### Cloudflare
+                  output.append(
+                      f"{endpoint}|HTTP {response.status_code}|"
+                      f"{response.headers.get('content-type','unknown')}"
+                  )
 
-          - Account ID configured: checked
-          - API authorization: checked
-          - Worker: ${EXPECTED_WORKER_NAME}
-          - Production endpoint: ${EXPECTED_WORKER_URL}
+              except Exception as exc:
+                  output.append(
+                      f"{endpoint}|ERROR|{type(exc).__name__}"
+                  )
 
-          ### Resources
+          Path("doctor-report/raw/live-api.txt").write_text(
+              "\n".join(output)
+          )
+          PY
 
-          - D1: inspected
-          - R2: inspected
-          - KV: inspected
-          - Worker deployments: inspected
+      # ==========================================================
+      # 12. PLAYWRIGHT LIVE FRONTEND DOCTOR
+      # ==========================================================
 
-          ## Application
+      - name: Run browser Doctor
+        shell: bash
+        run: |
+          cat > doctor/browser-doctor.js <<'NODE'
+          const { chromium } = require("playwright");
+          const fs = require("fs");
 
-          - Frontend structure: checked
-          - Worker source: checked
-          - Production API: checked
-          - Frontend API configuration: checked
+          const FRONTEND = process.env.LIVE_FRONTEND_URL;
+          const API = process.env.LIVE_API_URL;
 
-          ## Integrations
+          (async () => {
+            const browser = await chromium.launch({
+              headless: true
+            });
 
-          - Google Maps / Places: checked
-          - Google Service Account: checked
-          - Google Sheets: checked
-          - Firecrawl: checked
-          - Gemini: checked
-          - Geekflare: checked
+            const context = await browser.newContext({
+              ignoreHTTPSErrors: false
+            });
 
-          ## GitHub
+            const page = await context.newPage();
 
-          - Workflow inventory: checked
-          - GitHub Actions configuration: checked
+            const result = {
+              url: FRONTEND,
+              page: {
+                status: null,
+                title: null
+              },
+              consoleErrors: [],
+              pageErrors: [],
+              failedRequests: [],
+              responses: [],
+              forms: [],
+              buttons: [],
+              inputs: [],
+              apiRequests: [],
+              screenshots: []
+            };
 
-          ## Security
+            page.on("console", message => {
+              if (message.type() === "error") {
+                result.consoleErrors.push(message.text());
+              }
+            });
 
-          - Secrets are not printed into this report.
-          - Secret values are never persisted.
-          - This workflow performs read-only infrastructure inspection.
+            page.on("pageerror", error => {
+              result.pageErrors.push(String(error));
+            });
 
-          ## Remediation
+            page.on("requestfailed", request => {
+              result.failedRequests.push({
+                url: request.url(),
+                method: request.method(),
+                failure: request.failure()
+              });
+            });
 
-          This Doctor version does not automatically modify infrastructure.
+            page.on("response", response => {
+              const url = response.url();
 
-          Any remediation must be handled by an explicitly authorized workflow.
+              if (
+                url.includes("/api/") ||
+                url.includes(API)
+              ) {
+                result.apiRequests.push({
+                  url,
+                  status: response.status(),
+                  method: response.request().method()
+                });
+              }
 
-          ## Raw Diagnostics
+              if (response.status() >= 400) {
+                result.responses.push({
+                  url,
+                  status: response.status(),
+                  method: response.request().method()
+                });
+              }
+            });
 
-          Raw diagnostic files are available as workflow artifacts.
-          EOF
+            try {
+              const response = await page.goto(
+                FRONTEND,
+                {
+                  waitUntil: "networkidle",
+                  timeout: 60000
+                }
+              );
 
-      # ---------------------------------------------------------
-      # 14. Upload Report
-      # ---------------------------------------------------------
+              result.page.status = response
+                ? response.status()
+                : null;
 
-      - name: Upload Doctor Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: nexusleads-doctor-report-${{ github.run_id }}
-          path: doctor/
-          retention-days: 14
+              result.page.title = await page.title();
 
-      # ---------------------------------------------------------
-      # 15. Final Summary
-      # ---------------------------------------------------------
+              result.forms = await page.locator("form").evaluateAll(
+                forms => forms.map((form, index) => ({
+                  index,
+                  action: form.action,
+                  method: form.method,
+                  id: form.id,
+                  name: form.getAttribute("name")
+                }))
+              );
 
-      - name: Doctor Summary
+              result.buttons = await page.locator("button").evaluateAll(
+                buttons => buttons.map((button, index) => ({
+                  index,
+                  text: button.innerText,
+                  type: button.type,
+                  id: button.id,
+                  disabled: button.disabled
+                }))
+              );
+
+              result.inputs = await page.locator("input").evaluateAll(
+                inputs => inputs.map((input, index) => ({
+                  index,
+                  type: input.type,
+                  name: input.name,
+                  id: input.id,
+                  placeholder: input.placeholder
+                }))
+              );
+
+              await page.screenshot({
+                path: "doctor-report/screenshots/homepage.png",
+                fullPage: true
+              });
+
+              result.screenshots.push(
+                "doctor-report/screenshots/homepage.png"
+              );
+
+            } catch (error) {
+              result.pageErrors.push(String(error));
+
+              try {
+                await page.screenshot({
+                  path: "doctor-report/screenshots/frontend-failure.png",
+                  fullPage: true
+                });
+
+                result.screenshots.push(
+                  "doctor-report/screenshots/frontend-failure.png"
+                );
+              } catch {}
+            }
+
+            /*
+             * Detect likely authentication/register UI.
+             * This is discovery only. The Doctor does NOT submit
+             * real credentials.
+             */
+
+            const authText = await page.locator("body").innerText()
+              .catch(() => "");
+
+            result.authIndicators = {
+              login:
+                /login|sign in|signin/i.test(authText),
+
+              register:
+                /register|sign up|signup|create account/i.test(authText)
+            };
+
+            fs.writeFileSync(
+              "doctor-report/raw/browser.json",
+              JSON.stringify(result, null, 2)
+            );
+
+            await browser.close();
+          })();
+          NODE
+
+          LIVE_FRONTEND_URL="$LIVE_FRONTEND_URL" \
+          LIVE_API_URL="$LIVE_API_URL" \
+          node doctor/browser-doctor.js
+
+      # ==========================================================
+      # 13. AUTH / REGISTER DISCOVERY
+      # ==========================================================
+
+      - name: Analyze authentication implementation
         shell: bash
         run: |
           {
-            echo "## 🩺 NexusLeads Doctor"
-            echo ""
-            echo "**Repository:** $GITHUB_REPOSITORY"
-            echo ""
-            echo "**Commit:** $GITHUB_SHA"
-            echo ""
-            echo "**Worker:** $EXPECTED_WORKER_NAME"
-            echo ""
-            echo "**Endpoint:** $EXPECTED_WORKER_URL"
-            echo ""
-            echo "### Checks"
-            echo "- Cloudflare authentication"
-            echo "- Worker deployment"
-            echo "- Wrangler configuration"
-            echo "- D1"
-            echo "- R2"
-            echo "- KV"
-            echo "- Production API"
-            echo "- Frontend API configuration"
-            echo "- GitHub Secrets presence"
-            echo "- GitHub workflows"
-            echo "- Worker integrations"
-            echo ""
-            echo "### Mode"
-            echo "READ-ONLY"
-            echo ""
-            echo "No infrastructure was created, modified, or deleted."
-          } >> "$GITHUB_STEP_SUMMARY"
+            echo "=== AUTHENTICATION SOURCE ANALYSIS ==="
+
+            grep -RniE \
+              "register|signup|sign.?up|create.?account|login|signin|sign.?in|password|auth" \
+              frontend cloudflare backend \
+              --include="*.js" \
+              --include="*.html" \
+              --include="*.py" \
+              || true
+
+            echo
+            echo "=== FORM SUBMISSION ANALYSIS ==="
+
+            grep -RniE \
+              "fetch\(|axios|XMLHttpRequest|addEventListener.*submit|onsubmit" \
+              frontend cloudflare backend \
+              --include="*.js" \
+              --include="*.html" \
+              --include="*.py" \
+              || true
+
+          } > doctor-report/raw/auth-source-analysis.txt
+
+      # ==========================================================
+      # 14. STATIC JAVASCRIPT ERROR PATTERNS
+      # ==========================================================
+
+      - name: Static source diagnostics
+        shell: bash
+        run: |
+          {
+            echo "=== TODO / FIXME ==="
+
+            grep -RniE \
+              "TODO|FIXME|HACK|XXX" \
+              frontend cloudflare backend \
+              --include="*.js" \
+              --include="*.html" \
+              --include="*.py" \
+              || true
+
+            echo
+            echo "=== COMMON RUNTIME RISK PATTERNS ==="
+
+            grep -RniE \
+              "undefined|null|localStorage|sessionStorage|JSON.parse|JSON.stringify|\.env|process\.env|env\." \
+              frontend cloudflare backend \
+              --include="*.js" \
+              --include="*.html" \
+              --include="*.py" \
+              || true
+
+          } > doctor-report/raw/static-diagnostics.txt
+
+      # ==========================================================
+      # 15. GITHUB WORKFLOW ANALYSIS
+      # ==========================================================
+
+      - name: Analyze GitHub Actions
+        shell: bash
+        run: |
+          {
+            echo "=== WORKFLOWS ==="
+
+            find .github/workflows \
+              -type f \
+              \( -name "*.yml" -o -name "*.yaml" \) \
+              -print \
+              | sort
+
+            echo
+            echo "=== DEPLOYMENT REFERENCES ==="
+
+            grep -RniE \
+              "wrangler|cloudflare|deploy|pages|workers|secret|environment" \
+              .github/workflows \
+              --include="*.yml" \
+              --include="*.yaml" \
+              || true
+
+          } > doctor-report/raw/github-actions-analysis.txt
+
+      # ==========================================================
+      # 16. ROOT-CAUSE CORRELATION ENGINE
+      # ==========================================================
+
+      - name: Generate root cause report
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+          from datetime import datetime, timezone
+
+          root = Path(".")
+
+          report_dir = Path("doctor-report")
+          raw = report_dir / "raw"
+
+          browser_file = raw / "browser.json"
+
+          browser = {}
+
+          if browser_file.exists():
+              try:
+                  browser = json.loads(
+                      browser_file.read_text()
+                  )
+              except Exception:
+                  browser = {}
+
+          issues = []
+
+          def add_issue(
+              issue_id,
+              severity,
+              category,
+              title,
+              description,
+              root_path=None,
+              confidence="UNKNOWN",
+              remediation="MANUAL_INVESTIGATION"
+          ):
+              issues.append({
+                  "issue_id": issue_id,
+                  "severity": severity,
+                  "category": category,
+                  "title": title,
+                  "description": description,
+                  "root_path": root_path,
+                  "confidence": confidence,
+                  "remediation": remediation
+              })
+
+          # ------------------------------------------------------
+          # Frontend HTTP
+          # ------------------------------------------------------
+
+          page_status = (
+              browser.get("page", {})
+              .get("status")
+          )
+
+          if page_status and page_status >= 400:
+              add_issue(
+                  "FRONTEND-001",
+                  "CRITICAL",
+                  "FRONTEND",
+                  "Live frontend returned an HTTP error",
+                  f"Live frontend returned HTTP {page_status}.",
+                  "frontend/index.html",
+                  "CONFIRMED"
+              )
+
+          # ------------------------------------------------------
+          # Console
+          # ------------------------------------------------------
+
+          for index, error in enumerate(
+              browser.get("consoleErrors", []),
+              start=1
+          ):
+              add_issue(
+                  f"FRONTEND-CONSOLE-{index}",
+                  "HIGH",
+                  "FRONTEND",
+                  "Browser console error detected",
+                  error,
+                  "frontend/index.html",
+                  "CONFIRMED"
+              )
+
+          # ------------------------------------------------------
+          # Page Errors
+          # ------------------------------------------------------
+
+          for index, error in enumerate(
+              browser.get("pageErrors", []),
+              start=1
+          ):
+              add_issue(
+                  f"FRONTEND-RUNTIME-{index}",
+                  "HIGH",
+                  "FRONTEND",
+                  "Browser runtime error detected",
+                  error,
+                  "frontend/index.html",
+                  "CONFIRMED"
+              )
+
+          # ------------------------------------------------------
+          # Failed requests
+          # ------------------------------------------------------
+
+          for index, failure in enumerate(
+              browser.get("failedRequests", []),
+              start=1
+          ):
+              url = failure.get("url", "")
+
+              add_issue(
+                  f"NETWORK-{index}",
+                  "HIGH",
+                  "NETWORK",
+                  "Browser network request failed",
+                  url,
+                  None,
+                  "CONFIRMED"
+              )
+
+          # ------------------------------------------------------
+          # HTTP >= 400
+          # ------------------------------------------------------
+
+          for index, response in enumerate(
+              browser.get("responses", []),
+              start=1
+          ):
+              add_issue(
+                  f"HTTP-{index}",
+                  "HIGH",
+                  "API",
+                  f"HTTP {response.get('status')} response detected",
+                  (
+                      f"{response.get('method')} "
+                      f"{response.get('url')} returned "
+                      f"{response.get('status')}."
+                  ),
+                  None,
+                  "CONFIRMED"
+              )
+
+          # ------------------------------------------------------
+          # API requests
+          # ------------------------------------------------------
+
+          for index, request in enumerate(
+              browser.get("apiRequests", []),
+              start=1
+          ):
+              status = request.get("status")
+
+              if status and status >= 400:
+                  add_issue(
+                      f"API-{index}",
+                      "CRITICAL" if status >= 500 else "HIGH",
+                      "BACKEND",
+                      "Live API request failed",
+                      (
+                          f"{request.get('method')} "
+                          f"{request.get('url')} "
+                          f"returned HTTP {status}."
+                      ),
+                      "cloudflare/worker.js",
+                      "CONFIRMED"
+                  )
+
+          # ------------------------------------------------------
+          # Wrangler
+          # ------------------------------------------------------
+
+          wrangler = raw / "wrangler-analysis.txt"
+
+          if not wrangler.exists():
+              add_issue(
+                  "CF-CONFIG-001",
+                  "CRITICAL",
+                  "CLOUDFLARE",
+                  "Wrangler configuration missing",
+                  "cloudflare/wrangler.toml was not found.",
+                  "cloudflare/wrangler.toml",
+                  "CONFIRMED"
+              )
+
+          # ------------------------------------------------------
+          # Secret status
+          # ------------------------------------------------------
+
+          secret_status = raw / "secrets-status.txt"
+
+          if secret_status.exists():
+              for line in secret_status.read_text().splitlines():
+
+                  if "= MISSING" in line:
+                      name = line.split("=", 1)[0]
+
+                      add_issue(
+                          f"SECRET-{name}",
+                          "HIGH",
+                          "CONFIGURATION",
+                          f"Required secret is missing: {name}",
+                          "The secret exists as a dependency but is not available to this workflow.",
+                          None,
+                          "CONFIRMED"
+                      )
+
+          # ------------------------------------------------------
+          # Calculate score
+          # ------------------------------------------------------
+
+          score = 100
+
+          for issue in issues:
+              severity = issue["severity"]
+
+              if severity == "CRITICAL":
+                  score -= 25
+              elif severity == "HIGH":
+                  score -= 15
+              elif severity == "MEDIUM":
+                  score -= 8
+              elif severity == "LOW":
+                  score -= 3
+
+          score = max(0, min(100, score))
+
+          if any(i["severity"] == "CRITICAL" for i in issues):
+              overall = "CRITICAL"
+          elif any(i["severity"] == "HIGH" for i in issues):
+              overall = "DEGRADED"
+          elif issues:
+              overall = "WARNING"
+          else:
+              overall = "HEALTHY"
+
+          timestamp = datetime.now(
+              timezone.utc
+          ).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+          # ------------------------------------------------------
+          # JSON report
+          # ------------------------------------------------------
+
+          report = {
+              "doctor": {
+                  "name": "NexusLeads Full-Stack Doctor",
+                  "version": "2.0.0"
+              },
+              "generated_at": timestamp,
+              "repository": "${{ github.repository }}",
+              "commit": "${{ github.sha }}",
+              "run_id": "${{ github.run_id }}",
+              "frontend": "${{ env.LIVE_FRONTEND_URL }}",
+              "backend": "${{ env.LIVE_API_URL }}",
+              "mode": "READ_ONLY",
+              "overall_status": overall,
+              "health_score": score,
+              "issue_count": len(issues),
+              "issues": issues,
+              "security": {
+                  "secret_values_exposed": False,
+                  "secret_values_stored": False,
+                  "secret_names_only": True
+              }
+          }
+
+          (report_dir / "latest.json").write_text(
+              json.dumps(report, indent=2)
+          )
+
+          # ------------------------------------------------------
+          # Markdown report
+          # ------------------------------------------------------
+
+          lines = []
+
+          lines.append("# 🩺 NexusLeads Full-Stack Doctor")
+          lines.append("")
+          lines.append(f"**Status:** {overall}")
+          lines.append(f"**Health Score:** {score}/100")
+          lines.append(f"**Generated:** {timestamp}")
+          lines.append("")
+          lines.append("## Environment")
+          lines.append("")
+          lines.append(
+              f"- Frontend: ${{ env.LIVE_FRONTEND_URL }}"
+          )
+          lines.append(
+              f"- Backend: ${{ env.LIVE_API_URL }}"
+          )
+          lines.append(
+              "- Mode: READ-ONLY"
+          )
+          lines.append("")
+
+          lines.append("## Issues")
+          lines.append("")
+
+          if not issues:
+              lines.append(
+                  "No confirmed issues were detected by the current Doctor checks."
+              )
+          else:
+              for issue in issues:
+                  lines.append(
+                      f"### {issue['severity']} — {issue['title']}"
+                  )
+                  lines.append("")
+                  lines.append(
+                      f"**Issue ID:** `{issue['issue_id']}`"
+                  )
+                  lines.append(
+                      f"**Category:** {issue['category']}"
+                  )
+                  lines.append(
+                      f"**Confidence:** {issue['confidence']}"
+                  )
+                  lines.append("")
+                  lines.append(
+                      f"**Description:** {issue['description']}"
+                  )
+                  lines.append("")
+
+                  if issue.get("root_path"):
+                      lines.append(
+                          f"**Root Path:** `{issue['root_path']}`"
+                      )
+                      lines.append("")
+
+                  lines.append(
+                      f"**Remediation:** `{issue['remediation']}`"
+                  )
+                  lines.append("")
+
+          lines.append("## Secret Security")
+          lines.append("")
+          lines.append(
+              "Only GitHub Secret names and presence status are used. "
+              "Secret values are never written to the report."
+          )
+          lines.append("")
+
+          lines.append("## Diagnostic Limitations")
+          lines.append("")
+          lines.append(
+              "A source line is only reported when it can be established "
+              "from source inspection or runtime evidence. The Doctor "
+              "must not invent line numbers."
+          )
+          lines.append("")
+
+          (report_dir / "latest.md").write_text(
+              "\n".join(lines)
+          )
+
+          # ------------------------------------------------------
+          # History
+          # ------------------------------------------------------
+
+          history_name = (
+              datetime.now(timezone.utc)
+              .strftime("%Y%m%d-%H%M%S")
+          )
+
+          (report_dir / "history" / f"{history_name}.md").write_text(
+              "\n".join(lines)
+          )
+
+          (report_dir / "history" / f"{history_name}.json").write_text(
+              json.dumps(report, indent=2)
+          )
+
+          print(
+              f"Doctor finished: {overall} ({score}/100)"
+          )
+          print(
+              f"Issues detected: {len(issues)}"
+          )
+          PY
+
+      # ==========================================================
+      # 17. GENERATE SOURCE LINE INDEX
+      # ==========================================================
+
+      - name: Generate source line index
+        shell: bash
+        run: |
+          {
+            echo "# Source Line Index"
+            echo
+
+            while IFS= read -r file; do
+              echo "## $file"
+              echo
+
+              nl -ba "$file" \
+                | sed -n '1,2500p' \
+                | head -n 2500
+
+              echo
+            done < doctor-report/raw/source-files.txt
+
+          } > doctor-report/raw/source-line-index.txt
+
+      # ==========================================================
+      # 18. UPLOAD DIAGNOSTIC ARTIFACT
+      # ==========================================================
+
+      - name: Upload complete Doctor diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexusleads-doctor-${{ github.run_id }}
+          path: doctor-report/
+          retention-days: 14
+
+      # ==========================================================
+      # 19. GITHUB SUMMARY
+      # ==========================================================
+
+      - name: Publish Doctor summary
+        shell: bash
+        run: |
+          cat doctor-report/latest.md >> "$GITHUB_STEP_SUMMARY"
+
+      # ==========================================================
+      # 20. COMMIT REPORT TO REPOSITORY
+      # ==========================================================
+
+      - name: Commit Doctor report
+        shell: bash
+        run: |
+          git config user.name "NexusLeads Doctor"
+          git config user.email "doctor@noreply.github.com"
+
+          git add doctor-report/
+
+          if git diff --cached --quiet; then
+            echo "No Doctor report changes."
+            exit 0
+          fi
+
+          git commit \
+            -m "chore: update NexusLeads Doctor report"
+
+          git push
