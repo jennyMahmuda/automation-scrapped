@@ -337,7 +337,8 @@ jobs:
               buttons: [],
               inputs: [],
               apiRequests: [],
-              screenshots: []
+              screenshots: [],
+              authChecks: {}
             };
 
             page.on("console", message => {
@@ -451,10 +452,35 @@ jobs:
             }
 
             /*
-             * Detect likely authentication/register UI.
-             * This is discovery only. The Doctor does NOT submit
-             * real credentials.
+             * Safe authentication diagnostics.
+             * These probes never create an account and never use real credentials.
+             * Invalid payloads are intentional: they only verify that the browser
+             * can reach the endpoint and receive a normal JSON response.
              */
+            for (const [mode, endpoint, payload] of [
+              ["signup", "/api/auth/signup", { email: "doctor-invalid-email", password: "x" }],
+              ["login", "/api/auth/login", { email: "doctor-invalid@example.invalid", password: "wrong-password" }]
+            ]) {
+              try {
+                const probe = await page.evaluate(async ({ apiBase, endpoint, payload }) => {
+                  try {
+                    const response = await fetch(apiBase + endpoint, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(payload),
+                      credentials: "omit"
+                    });
+                    const body = await response.text();
+                    return { status: response.status, body: body.slice(0, 300) };
+                  } catch (error) {
+                    return { blocked: true, error: String(error) };
+                  }
+                }, { apiBase: API, endpoint, payload });
+                result.authChecks[mode] = { endpoint, ...probe };
+              } catch (error) {
+                result.authChecks[mode] = { endpoint, blocked: true, error: String(error) };
+              }
+            }
 
             const authText = await page.locator("body").innerText()
               .catch(() => "");
@@ -579,384 +605,200 @@ jobs:
         run: |
           python - <<'PY'
           import json
-          import re
-          from pathlib import Path
+          import os
           from datetime import datetime, timezone
-
-          root = Path(".")
+          from pathlib import Path
+          from urllib.parse import urlparse
 
           report_dir = Path("doctor-report")
           raw = report_dir / "raw"
-
-          browser_file = raw / "browser.json"
-
           browser = {}
-
+          browser_file = raw / "browser.json"
           if browser_file.exists():
               try:
-                  browser = json.loads(
-                      browser_file.read_text()
-                  )
+                  browser = json.loads(browser_file.read_text())
               except Exception:
                   browser = {}
 
           issues = []
 
-          def add_issue(
-              issue_id,
-              severity,
-              category,
-              title,
-              description,
-              root_path=None,
-              confidence="UNKNOWN",
-              remediation="MANUAL_INVESTIGATION"
-          ):
+          def add_issue(issue_id, severity, title, reason, file_path="Not established", line="Not established", action="Review the evidence in this report."):
               issues.append({
-                  "issue_id": issue_id,
+                  "id": issue_id,
                   "severity": severity,
-                  "category": category,
                   "title": title,
-                  "description": description,
-                  "root_path": root_path,
-                  "confidence": confidence,
-                  "remediation": remediation
+                  "reason": reason,
+                  "file": file_path,
+                  "line": line,
+                  "action": action,
               })
 
-          # ------------------------------------------------------
-          # Frontend HTTP
-          # ------------------------------------------------------
+          def source_for_url(url):
+              path = urlparse(url).path
+              if path.endswith("/api/auth/signup"):
+                  return ("frontend/app.js", "313-324", "The frontend sends the signup request here. Also check cloudflare/worker.js:391-408 for the backend handler.")
+              if path.endswith("/api/auth/login"):
+                  return ("frontend/app.js", "313-324", "The frontend sends the login request here. Also check cloudflare/worker.js:411-424 for the backend handler.")
+              if path.endswith("/api/auth/me"):
+                  return ("frontend/app.js", "188-196", "The frontend validates the saved session token here.")
+              if path.startswith("/api/"):
+                  return ("frontend/app.js", "61-67", "The frontend sends API requests through this helper; inspect the matching route in cloudflare/worker.js.")
+              return ("Not established", "Not established", "The failure was observed in the browser, but no unique source line can be proven from this evidence.")
 
-          page_status = (
-              browser.get("page", {})
-              .get("status")
-          )
-
+          page = browser.get("page", {})
+          page_status = page.get("status")
           if page_status and page_status >= 400:
-              add_issue(
-                  "FRONTEND-001",
-                  "CRITICAL",
-                  "FRONTEND",
-                  "Live frontend returned an HTTP error",
-                  f"Live frontend returned HTTP {page_status}.",
-                  "frontend/index.html",
-                  "CONFIRMED"
-              )
+              add_issue("FRONTEND-HTTP", "CRITICAL", "The live website cannot be opened", f"The frontend returned HTTP {page_status}.", "frontend/index.html", "1-500", "Open the frontend deployment and fix the HTTP error before checking login.")
 
-          # ------------------------------------------------------
-          # Console
-          # ------------------------------------------------------
+          for index, error in enumerate(browser.get("consoleErrors", []), 1):
+              add_issue(f"BROWSER-CONSOLE-{index}", "HIGH", "The browser printed an error", error, "frontend/index.html or frontend/app.js", "Not established", "Open the browser console message and fix the referenced JavaScript or network request.")
 
-          for index, error in enumerate(
-              browser.get("consoleErrors", []),
-              start=1
-          ):
-              add_issue(
-                  f"FRONTEND-CONSOLE-{index}",
-                  "HIGH",
-                  "FRONTEND",
-                  "Browser console error detected",
-                  error,
-                  "frontend/index.html",
-                  "CONFIRMED"
-              )
+          for index, error in enumerate(browser.get("pageErrors", []), 1):
+              add_issue(f"BROWSER-RUNTIME-{index}", "HIGH", "The page JavaScript crashed", error, "frontend/app.js", "Not established", "Use the error text to locate the failing function, then rerun Doctor.")
 
-          # ------------------------------------------------------
-          # Page Errors
-          # ------------------------------------------------------
-
-          for index, error in enumerate(
-              browser.get("pageErrors", []),
-              start=1
-          ):
-              add_issue(
-                  f"FRONTEND-RUNTIME-{index}",
-                  "HIGH",
-                  "FRONTEND",
-                  "Browser runtime error detected",
-                  error,
-                  "frontend/index.html",
-                  "CONFIRMED"
-              )
-
-          # ------------------------------------------------------
-          # Failed requests
-          # ------------------------------------------------------
-
-          for index, failure in enumerate(
-              browser.get("failedRequests", []),
-              start=1
-          ):
+          for index, failure in enumerate(browser.get("failedRequests", []), 1):
               url = failure.get("url", "")
+              file_path, line, action = source_for_url(url)
+              add_issue(f"NETWORK-{index}", "HIGH", "A browser request was blocked or failed", f"{failure.get('method', 'REQUEST')} {url}\nBrowser reason: {failure.get('failure')}", file_path, line, action)
 
-              add_issue(
-                  f"NETWORK-{index}",
-                  "HIGH",
-                  "NETWORK",
-                  "Browser network request failed",
-                  url,
-                  None,
-                  "CONFIRMED"
-              )
+          seen_http = set()
+          for response in browser.get("responses", []):
+              url = response.get("url", "")
+              key = (response.get("method"), url, response.get("status"))
+              if key in seen_http:
+                  continue
+              seen_http.add(key)
+              file_path, line, action = source_for_url(url)
+              status = response.get("status")
+              severity = "CRITICAL" if status >= 500 else "HIGH"
+              add_issue(f"HTTP-{len(seen_http)}", severity, f"The server returned HTTP {status}", f"{response.get('method', 'REQUEST')} {url} returned HTTP {status}.", file_path, line, action)
 
-          # ------------------------------------------------------
-          # HTTP >= 400
-          # ------------------------------------------------------
-
-          for index, response in enumerate(
-              browser.get("responses", []),
-              start=1
-          ):
-              add_issue(
-                  f"HTTP-{index}",
-                  "HIGH",
-                  "API",
-                  f"HTTP {response.get('status')} response detected",
-                  (
-                      f"{response.get('method')} "
-                      f"{response.get('url')} returned "
-                      f"{response.get('status')}."
-                  ),
-                  None,
-                  "CONFIRMED"
-              )
-
-          # ------------------------------------------------------
-          # API requests
-          # ------------------------------------------------------
-
-          for index, request in enumerate(
-              browser.get("apiRequests", []),
-              start=1
-          ):
-              status = request.get("status")
-
-              if status and status >= 400:
+          # Authentication checks are intentionally safe invalid-payload checks.
+          # Expected results: signup=400, login=401. Those statuses prove that
+          # the browser reached the API and that CORS did not block the response.
+          auth_checks = browser.get("authChecks", {})
+          auth_summary = []
+          for mode, expected in (("signup", 400), ("login", 401)):
+              check = auth_checks.get(mode, {})
+              status = check.get("status")
+              endpoint = check.get("endpoint", f"/api/auth/{mode}")
+              if check.get("blocked") or check.get("error"):
                   add_issue(
-                      f"API-{index}",
-                      "CRITICAL" if status >= 500 else "HIGH",
-                      "BACKEND",
-                      "Live API request failed",
-                      (
-                          f"{request.get('method')} "
-                          f"{request.get('url')} "
-                          f"returned HTTP {status}."
-                      ),
-                      "cloudflare/worker.js",
-                      "CONFIRMED"
-                  )
+                      f"AUTH-CORS-{mode.upper()}", "CRITICAL", f"{mode.title()} is blocked in the browser",
+                      f"The browser could not receive a normal response from {endpoint}. This usually means the custom frontend origin is missing from the Worker CORS allowlist.",
+                      "cloudflare/wrangler.toml", "21", "Add https://leads.sayadbayezid.com to ALLOWED_ORIGINS and deploy the Worker. The CORS logic is in cloudflare/worker.js:573-589.")
+                  auth_summary.append((mode, "BLOCKED", "The browser could not read the API response; likely CORS."))
+              elif status not in (expected, 409 if mode == "signup" else expected):
+                  file_path, line, action = source_for_url(endpoint)
+                  add_issue(
+                      f"AUTH-{mode.upper()}", "CRITICAL" if status and status >= 500 else "HIGH", f"{mode.title()} endpoint returned an unexpected result",
+                      f"The safe Doctor probe sent an intentionally invalid request and received HTTP {status}. Response: {check.get('body', '')}",
+                      file_path, line, action)
+                  auth_summary.append((mode, f"HTTP {status}", "Unexpected response; read the issue row below."))
+              else:
+                  auth_summary.append((mode, f"HTTP {status}", "Endpoint reachable; the invalid test was handled normally."))
 
-          # ------------------------------------------------------
-          # Wrangler
-          # ------------------------------------------------------
-
-          wrangler = raw / "wrangler-analysis.txt"
-
-          if not wrangler.exists():
-              add_issue(
-                  "CF-CONFIG-001",
-                  "CRITICAL",
-                  "CLOUDFLARE",
-                  "Wrangler configuration missing",
-                  "cloudflare/wrangler.toml was not found.",
-                  "cloudflare/wrangler.toml",
-                  "CONFIRMED"
-              )
-
-          # ------------------------------------------------------
-          # Secret status
-          # ------------------------------------------------------
+          if not browser.get("authIndicators", {}).get("login"):
+              add_issue("AUTH-UI-LOGIN", "HIGH", "The login control was not found", "The live page text did not contain a login label.", "frontend/index.html", "154-160", "Confirm that the login button and auth modal are present in the deployed frontend.")
+          if not browser.get("authIndicators", {}).get("register"):
+              add_issue("AUTH-UI-SIGNUP", "HIGH", "The signup control was not found", "The live page text did not contain a signup label.", "frontend/index.html", "154-160, 416-440", "Confirm that the Sign Up button and Create Account modal are present in the deployed frontend.")
 
           secret_status = raw / "secrets-status.txt"
-
           if secret_status.exists():
               for line in secret_status.read_text().splitlines():
-
                   if "= MISSING" in line:
                       name = line.split("=", 1)[0]
-
-                      add_issue(
-                          f"SECRET-{name}",
-                          "HIGH",
-                          "CONFIGURATION",
-                          f"Required secret is missing: {name}",
-                          "The secret exists as a dependency but is not available to this workflow.",
-                          None,
-                          "CONFIRMED"
-                      )
-
-          # ------------------------------------------------------
-          # Calculate score
-          # ------------------------------------------------------
+                      add_issue(f"SECRET-{name}", "HIGH", f"A workflow secret is missing: {name}", "This workflow could not see the required secret.", ".github/workflows/doctor.yml", "156-175", f"Add or correctly name the GitHub secret {name} if the related feature is required.")
 
           score = 100
-
           for issue in issues:
-              severity = issue["severity"]
-
-              if severity == "CRITICAL":
-                  score -= 25
-              elif severity == "HIGH":
-                  score -= 15
-              elif severity == "MEDIUM":
-                  score -= 8
-              elif severity == "LOW":
-                  score -= 3
-
+              score -= {"CRITICAL": 25, "HIGH": 15, "MEDIUM": 8, "LOW": 3}.get(issue["severity"], 0)
           score = max(0, min(100, score))
-
-          if any(i["severity"] == "CRITICAL" for i in issues):
-              overall = "CRITICAL"
-          elif any(i["severity"] == "HIGH" for i in issues):
-              overall = "DEGRADED"
-          elif issues:
-              overall = "WARNING"
-          else:
-              overall = "HEALTHY"
-
-          timestamp = datetime.now(
-              timezone.utc
-          ).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-          # ------------------------------------------------------
-          # JSON report
-          # ------------------------------------------------------
+          overall = "CRITICAL" if any(i["severity"] == "CRITICAL" for i in issues) else "DEGRADED" if any(i["severity"] == "HIGH" for i in issues) else "HEALTHY"
+          timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+          frontend = os.environ.get("LIVE_FRONTEND_URL", "")
+          backend = os.environ.get("LIVE_API_URL", "")
 
           report = {
-              "doctor": {
-                  "name": "NexusLeads Full-Stack Doctor",
-                  "version": "2.0.0"
-              },
+              "doctor": "NexusLeads human-readable Doctor",
               "generated_at": timestamp,
-              "repository": "${{ github.repository }}",
-              "commit": "${{ github.sha }}",
-              "run_id": "${{ github.run_id }}",
-              "frontend": "${{ env.LIVE_FRONTEND_URL }}",
-              "backend": "${{ env.LIVE_API_URL }}",
-              "mode": "READ_ONLY",
+              "frontend": frontend,
+              "backend": backend,
               "overall_status": overall,
               "health_score": score,
               "issue_count": len(issues),
               "issues": issues,
-              "security": {
-                  "secret_values_exposed": False,
-                  "secret_values_stored": False,
-                  "secret_names_only": True
-              }
+              "auth_checks": auth_checks,
           }
+          (report_dir / "latest.json").write_text(json.dumps(report, indent=2))
 
-          (report_dir / "latest.json").write_text(
-              json.dumps(report, indent=2)
-          )
-
-          # ------------------------------------------------------
-          # Markdown report
-          # ------------------------------------------------------
-
-          lines = []
-
-          lines.append("# 🩺 NexusLeads Full-Stack Doctor")
-          lines.append("")
-          lines.append(f"**Status:** {overall}")
-          lines.append(f"**Health Score:** {score}/100")
-          lines.append(f"**Generated:** {timestamp}")
-          lines.append("")
-          lines.append("## Environment")
-          lines.append("")
-          lines.append(
-              f"- Frontend: ${{ env.LIVE_FRONTEND_URL }}"
-          )
-          lines.append(
-              f"- Backend: ${{ env.LIVE_API_URL }}"
-          )
-          lines.append(
-              "- Mode: READ-ONLY"
-          )
-          lines.append("")
-
-          lines.append("## Issues")
-          lines.append("")
-
-          if not issues:
-              lines.append(
-                  "No confirmed issues were detected by the current Doctor checks."
-              )
+          lines = [
+              "# NexusLeads Doctor — সহজ রিপোর্ট",
+              "",
+              f"**সার্বিক অবস্থা:** `{overall}`  ",
+              f"**Health score:** `{score}/100`  ",
+              f"**রিপোর্ট সময়:** `{timestamp}`  ",
+              f"**Website checked:** `{frontend}`  ",
+              f"**API checked:** `{backend}`",
+              "",
+              "> এই রিপোর্টের উদ্দেশ্য হলো আপনাকে raw log পড়তে না দেওয়া। নিচে সরাসরি বলা আছে: কী সমস্যা, কোন ফাইলে, কোন লাইনে, কেন হচ্ছে, এবং এখন কী করবেন।",
+              "",
+              "## Login ও নতুন account check",
+              "",
+              "| Check | ফলাফল | সহজ ব্যাখ্যা |",
+              "|---|---|---|",
+          ]
+          if auth_summary:
+              for mode, result, explanation in auth_summary:
+                  lines.append(f"| `{mode}` | `{result}` | {explanation} |")
           else:
-              for issue in issues:
-                  lines.append(
-                      f"### {issue['severity']} — {issue['title']}"
-                  )
-                  lines.append("")
-                  lines.append(
-                      f"**Issue ID:** `{issue['issue_id']}`"
-                  )
-                  lines.append(
-                      f"**Category:** {issue['category']}"
-                  )
-                  lines.append(
-                      f"**Confidence:** {issue['confidence']}"
-                  )
-                  lines.append("")
-                  lines.append(
-                      f"**Description:** {issue['description']}"
-                  )
-                  lines.append("")
-
-                  if issue.get("root_path"):
-                      lines.append(
-                          f"**Root Path:** `{issue['root_path']}`"
-                      )
-                      lines.append("")
-
-                  lines.append(
-                      f"**Remediation:** `{issue['remediation']}`"
-                  )
-                  lines.append("")
-
-          lines.append("## Secret Security")
-          lines.append("")
-          lines.append(
-              "Only GitHub Secret names and presence status are used. "
-              "Secret values are never written to the report."
-          )
-          lines.append("")
-
-          lines.append("## Diagnostic Limitations")
-          lines.append("")
-          lines.append(
-              "A source line is only reported when it can be established "
-              "from source inspection or runtime evidence. The Doctor "
-              "must not invent line numbers."
-          )
-          lines.append("")
-
-          (report_dir / "latest.md").write_text(
-              "\n".join(lines)
-          )
-
-          # ------------------------------------------------------
-          # History
-          # ------------------------------------------------------
-
-          history_name = (
-              datetime.now(timezone.utc)
-              .strftime("%Y%m%d-%H%M%S")
-          )
-
-          (report_dir / "history" / f"{history_name}.md").write_text(
-              "\n".join(lines)
-          )
-
-          (report_dir / "history" / f"{history_name}.json").write_text(
-              json.dumps(report, indent=2)
-          )
-
-          print(
-              f"Doctor finished: {overall} ({score}/100)"
-          )
-          print(
-              f"Issues detected: {len(issues)}"
-          )
+              lines.append("| login/signup | CHECK FAILED | Browser auth probe did not finish; see the issue table. |")
+          lines += [
+              "",
+              "**গুরুত্বপূর্ণ:** Doctor account তৈরি করে না এবং কোনো real password ব্যবহার করে না। Signup-এর জন্য invalid email/short password এবং login-এর জন্য fake credentials পাঠানো হয়; এর উদ্দেশ্য শুধু browser-to-API connection ও CORS পরীক্ষা করা।",
+              "",
+              "## আগে এই সমস্যাগুলো ঠিক করুন",
+              "",
+          ]
+          if not issues:
+              lines.append("Doctor-এর বর্তমান checks-এ কোনো সমস্যা পাওয়া যায়নি।")
+          else:
+              lines += [
+                  "| অগ্রাধিকার | সমস্যা | কোন file | কোন line | কেন হচ্ছে / কী করবেন |",
+                  "|---|---|---|---|---|",
+              ]
+              for number, issue in enumerate(issues, 1):
+                  reason = issue["reason"].replace("\n", " ").replace("|", "\\|")
+                  action = issue["action"].replace("\n", " ").replace("|", "\\|")
+                  detail = f"**কারণ:** {reason}<br>**করণীয়:** {action}"
+                  lines.append(f"| {number}. `{issue['severity']}` | {issue['title']} | `{issue['file']}` | `{issue['line']}` | {detail} |")
+          lines += [
+              "",
+              "## Source reference",
+              "",
+              "| বিষয় | Source location |",
+              "|---|---|",
+              "| Frontend auth request | `frontend/app.js:313-324` |",
+              "| Backend signup | `cloudflare/worker.js:391-408` |",
+              "| Backend login | `cloudflare/worker.js:411-424` |",
+              "| CORS allowlist logic | `cloudflare/worker.js:573-589` |",
+              "| Deployed origin allowlist | `cloudflare/wrangler.toml:20-23` |",
+              "",
+              "## কী পরীক্ষা হয়েছে",
+              "",
+              "Doctor live website HTTP status, browser console/runtime error, failed network request, API HTTP response, login/signup UI, safe auth endpoint response, Cloudflare authentication, Worker resources, source files, secrets status, এবং workflow configuration পরীক্ষা করেছে।",
+              "",
+              "## রিপোর্ট পড়ার নিয়ম",
+              "",
+              "- `CRITICAL` হলে আগে সেটি ঠিক করুন; সাধারণত website/API/CORS সম্পূর্ণভাবে আটকে আছে.",
+              "- `HIGH` হলে feature কাজ নাও করতে পারে; report-এর file ও line দেখে পরিবর্তন করুন.",
+              "- `Not established` মানে Doctor runtime evidence পেয়েছে, কিন্তু নির্দিষ্ট source line প্রমাণ করতে পারেনি—এ ক্ষেত্রে issue message-এ দেওয়া browser/API URL অনুসরণ করুন.",
+              "- Login/signup-এর safe probe `HTTP 400` signup এবং `HTTP 401` login পেলে API reachable ও browser CORS কাজ করছে; তখন real account-এর ভুল email/password, existing account, বা database data আলাদা করে পরীক্ষা করতে হবে.",
+              "",
+              "**এই run-এর generated report:** `doctor-report/latest.md`",
+          ]
+          (report_dir / "latest.md").write_text("\n".join(lines) + "\n")
+          print(f"Doctor report: {overall} ({score}/100), issues={len(issues)}")
           PY
 
       # ==========================================================
@@ -987,11 +829,12 @@ jobs:
       # 18. UPLOAD DIAGNOSTIC ARTIFACT
       # ==========================================================
 
-      - name: Upload complete Doctor diagnostics
+      - name: Upload readable Doctor report
         uses: actions/upload-artifact@v4
         with:
-          name: nexusleads-doctor-${{ github.run_id }}
-          path: doctor-report/
+          name: nexusleads-doctor-readable-${{ github.run_id }}
+          path: doctor-report/latest.md
+          if-no-files-found: error
           retention-days: 14
 
       # ==========================================================
@@ -1013,7 +856,7 @@ jobs:
           git config user.name "NexusLeads Doctor"
           git config user.email "doctor@noreply.github.com"
 
-          git add doctor-report/
+          git add doctor-report/latest.md
 
           if git diff --cached --quiet; then
             echo "No Doctor report changes."
