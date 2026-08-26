@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NexusBarcode Admin | Customization</title><link rel="stylesheet" href="../styles.css">
+</head>
+<body><div class="shell">
+  <nav class="nav"><a class="brand" href="../"><span class="brand-mark">▥</span><span data-brand-name>NexusBarcode</span></a><div class="nav-links"><span class="pill">Admin workspace</span><a class="btn" href="../">Open generator</a></div></nav>
+  <main>
+    <section class="hero"><p class="eyebrow">Admin dashboard</p><h1>Make the tool feel like <span class="gradient-text">your store.</span></h1><p>Customize the isolated barcode workspace and connect a customer-owned API. Only non-secret display preferences and the endpoint label are kept locally in this browser. No barcode value, image, request body, or API secret is stored.</p></section>
+    <section class="grid grid-2">
+      <form class="panel" id="brand-form"><p class="eyebrow">Appearance</p><h2>Workspace customization</h2>
+        <div class="form-row"><label for="brand-name">Workspace name</label><input id="brand-name" maxlength="42"></div>
+        <div class="form-row"><label for="tagline">Short tagline</label><input id="tagline" maxlength="110"></div>
+        <div class="grid grid-2"><div class="form-row"><label for="accent">Primary accent</label><input class="swatch" id="accent" type="color"></div><div class="form-row"><label for="accent-secondary">Secondary accent</label><input class="swatch" id="accent-secondary" type="color"></div></div>
+        <div class="form-row"><label for="default-format">Default symbology</label><select id="default-format"><option value="CODE39">Code 39</option><option value="EAN13">EAN-13</option><option value="UPCA">UPC-A</option></select></div>
+        <div class="form-row"><label for="density">Dashboard density</label><select id="density"><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></div>
+        <label class="inline"><input class="checkbox" id="show-privacy" type="checkbox"> Show privacy boundary notice</label>
+        <div class="actions"><button class="btn btn-primary" type="submit">Save customization</button><button class="btn btn-danger" type="button" id="reset-brand">Reset appearance</button></div><div class="status" id="brand-status" role="status"></div>
+      </form>
+      <section class="panel"><p class="eyebrow">Connection</p><h2>Customer API connector</h2><p>Use this when the ecommerce customer wants barcode generation to run through their own server. The connector receives only <code>{ format, value }</code> and should return an SVG, image URL, or base64 PNG.</p>
+        <div class="form-row"><label for="endpoint">Customer API base URL</label><input id="endpoint" type="url" placeholder="https://store-api.example.com"></div>
+        <div class="form-row"><label for="auth-type">Authentication</label><select id="auth-type"><option value="bearer">Bearer token</option><option value="x-api-key">X-API-Key</option><option value="basic">Basic (base64 user:password)</option><option value="none">No authentication</option></select></div>
+        <div class="form-row"><label for="secret">API secret <span style="color:var(--accent)">not saved</span></label><input id="secret" type="password" autocomplete="new-password" placeholder="Accepted for this browser session only"></div>
+        <div class="notice">The secret is kept in memory only. It is cleared when this tab closes, is never included in logs, and is never written to the repository, local storage, cookies, or this service’s server.</div>
+        <div class="actions"><button class="btn btn-primary" id="connect" type="button">Connect for this session</button><button class="btn btn-danger" id="disconnect" type="button">Forget connection</button></div><div class="status" id="connector-status" role="status"></div>
+      </section>
+    </section>
+    <section class="panel" style="margin-top:18px"><p class="eyebrow">Implementation contract</p><h2>Safe integration boundary</h2><div class="grid grid-3"><div><strong>Inbound</strong><p class="helper">POST /api/barcode/generate with format and value.</p></div><div><strong>Outbound</strong><p class="helper">Return { success, format, value, svg } or image_url/png_base64.</p></div><div><strong>Retention</strong><p class="helper">This module has no database, history, analytics, or server-side customer data store.</p></div></div></section>
+  </main><footer class="footer">Isolated module only. Existing NexusLeads files, routes, workflows, and root configuration remain untouched.</footer>
+</div><script type="module" src="./admin.js"></script></body></html>

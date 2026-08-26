@@ -1,0 +1,29 @@
+# Portable workflow for a standalone repository containing this barcode-saas folder.
+# GitHub Actions only executes workflow files placed at .github/workflows in that repository;
+# this file intentionally remains nested here so the legacy repository is not changed.
+name: NexusBarcode isolated checks
+
+on:
+  push:
+    paths:
+      - 'barcode-saas/**'
+  pull_request:
+    paths:
+      - 'barcode-saas/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run barcode tests
+        run: node barcode-saas/tests/barcode.test.js
+      - name: Check JavaScript syntax
+        run: |
+          node --check barcode-saas/app.js
+          node --check barcode-saas/admin/admin.js
+          node --check barcode-saas/core/barcode.js
+          node --check barcode-saas/core/api-client.js
