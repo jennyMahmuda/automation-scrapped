@@ -2,7 +2,7 @@
 
 **সার্বিক অবস্থা:** `DEGRADED`  
 **Health score:** `55/100`  
-**রিপোর্ট সময়:** `2026-08-26 01:19 UTC`  
+**রিপোর্ট সময়:** `2026-08-26 04:18 UTC`  
 **Website checked:** `https://leads.sayadbayezid.com/`  
 **API checked:** `https://nexusleads-api.mahmudajenny6.workers.dev`
 
