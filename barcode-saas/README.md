@@ -12,8 +12,15 @@ NexusBarcode is a standalone, browser-first barcode tool for ecommerce teams. It
 | `core/api-client.js` | Customer-owned API adapter supporting bearer, `X-API-Key`, basic, and no-auth requests. |
 | `core/storage.js` | Local-only UI metadata storage; no barcode values, images, or secrets are stored. |
 | `workflows/workflow-map.md` | End-to-end workflow and security boundary. |
-| `workflows/customer-api-contract.md` | Contract for plugging in a customer’s server API. |
+| `workflows/customer-api-contract.md` | Compact contract for plugging in a customer’s server API. |
+| `docs/api.md` | Full ecommerce developer API documentation with dashboard examples and production checklists. |
 | `tests/barcode.test.js` | Deterministic validation tests. |
+
+## Live URLs
+
+- Generator: <https://leads.sayadbayezid.com/barcode-saas/>
+- Admin customization: <https://leads.sayadbayezid.com/barcode-saas/admin/>
+- Developer API documentation: [`docs/api.md`](./docs/api.md)
 
 ## Run locally
 
@@ -35,7 +42,7 @@ When API mode is selected, only `{ format, value }` is sent to the configured cu
 
 ## Zero-touch guarantee
 
-The implementation was created under a new folder only. The existing root files and existing folders remain unchanged. The current legacy deployment workflows do not automatically publish this add-on because enabling it would require changing root workflow files, which is intentionally not done. To deploy independently, copy or mirror only `barcode-saas/` into a separate static site or repository and configure the host there.
+The implementation was created under a new folder, and the existing application source folders remain unchanged. The GitHub Pages workflow now assembles the existing `frontend/` at the site root and publishes this module at `/barcode-saas/`. The Cloudflare backend workflow and legacy runtime remain unchanged.
 
 ## Supported output contract
 
