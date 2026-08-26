@@ -904,4 +904,13 @@ jobs:
           git commit \
             -m "chore: update NexusLeads Doctor report"
 
-          git push
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "Remote changed while publishing the report; rebasing and retrying ($attempt/3)."
+            git fetch origin main
+            git rebase origin/main
+          done
+          echo "Could not publish the Doctor report after three attempts."
+          exit 1
