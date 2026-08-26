@@ -709,11 +709,11 @@ jobs:
               if check.get("blocked") or check.get("error"):
                   if not any(issue["id"] == "AUTH-CORS-GROUP" for issue in issues):
                       add_issue(
-                          "AUTH-CORS-GROUP", "CRITICAL", "Login and signup are blocked by the browser",
-                          "The browser could not receive a normal response from the auth endpoints. Because the live custom domain is calling the Worker API, the most likely cause is that the custom frontend origin is missing from the Worker CORS allowlist.",
+                          "AUTH-CORS-GROUP", "CRITICAL", "Login ও নতুন account blocked: CORS সমস্যা",
+                          "Custom domain থেকে auth API-তে request গেলেও browser response পড়তে পারছে না. সবচেয়ে সম্ভাব্য কারণ হলো Worker CORS allowlist-এ https://leads.sayadbayezid.com নেই.",
                           "cloudflare/wrangler.toml", "21",
-                          "Change ALLOWED_ORIGINS to include https://leads.sayadbayezid.com, deploy the Worker, and run Doctor again. The CORS code is in cloudflare/worker.js:573-589. Do not change frontend/app.js first.")
-                  auth_summary.append((mode, "BLOCKED", "Browser could not read the API response; likely CORS."))
+                          "প্রথমে cloudflare/wrangler.toml-এর line 21-এ custom domain যোগ করুন, Worker deploy করুন, তারপর Doctor আবার চালান. CORS code আছে cloudflare/worker.js:573-589-এ. frontend/app.js আগে পরিবর্তন করবেন না.")
+                  auth_summary.append((mode, "BLOCKED", "Browser API response পড়তে পারেনি; CORS সমস্যা হওয়ার সম্ভাবনা বেশি."))
               elif status not in (expected, 409 if mode == "signup" else expected):
                   file_path, line, action = source_for_url(endpoint)
                   add_issue(
@@ -728,6 +728,18 @@ jobs:
               add_issue("AUTH-UI-LOGIN", "HIGH", "The login control was not found", "The live page text did not contain a login label.", "frontend/index.html", "154-160", "Confirm that the login button and auth modal are present in the deployed frontend.")
           if not browser.get("authIndicators", {}).get("register"):
               add_issue("AUTH-UI-SIGNUP", "HIGH", "The signup control was not found", "The live page text did not contain a signup label.", "frontend/index.html", "154-160, 416-440", "Confirm that the Sign Up button and Create Account modal are present in the deployed frontend.")
+
+          # Do not make the user read the same CORS failure many times.
+          # Keep the single actionable root-cause row above.
+          if any(issue["id"] == "AUTH-CORS-GROUP" for issue in issues):
+              issues[:] = [
+                  issue for issue in issues
+                  if issue["id"] != "NETWORK-API-GROUP"
+                  and not (
+                      issue["id"].startswith("BROWSER-CONSOLE-")
+                      and any(marker in issue["reason"] for marker in ("CORS", "net::ERR_FAILED", "Failed to load resource"))
+                  )
+              ]
 
           secret_status = raw / "secrets-status.txt"
           if secret_status.exists():
