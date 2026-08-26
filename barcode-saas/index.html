@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NexusBarcode | Private barcode tools</title>
+  <meta name="description" content="A private barcode generator for ecommerce teams. Generate locally or connect your own API without storing barcode data.">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="shell">
+    <nav class="nav" aria-label="Primary">
+      <a class="brand" href="./"><span class="brand-mark">▥</span><span data-brand-name>NexusBarcode</span></a>
+      <div class="nav-links"><span class="pill pill-live">Local-first mode</span><a class="btn" href="./admin/">Admin customization</a></div>
+    </nav>
+    <main>
+      <section class="hero">
+        <p class="eyebrow">Private commerce tooling</p>
+        <h1>Generate a clean barcode in <span class="gradient-text">seconds.</span></h1>
+        <p data-brand-tagline>Generate locally in your browser, or connect a customer-owned API when your ecommerce workflow needs server-side automation. Barcode values, generated images, and API secrets are never written to this service.</p>
+      </section>
+      <section class="grid grid-2">
+        <div class="panel">
+          <p class="eyebrow">Generator</p>
+          <h2>Create a barcode</h2>
+          <p>Choose a supported format, enter a value, and download the result. Local mode works without an account or server.</p>
+          <div class="form-row"><label for="format">Symbology</label><select id="format"><option value="CODE39">Code 39</option><option value="EAN13">EAN-13</option><option value="UPCA">UPC-A</option></select></div>
+          <div class="form-row"><label for="value">Barcode value</label><input id="value" autocomplete="off" placeholder="e.g. INV-2026-001 or 590123412345"></div>
+          <div class="form-row"><label for="mode">Generation mode</label><select id="mode"><option value="local">Generate locally — no network request</option><option value="api">Use connected customer API</option></select></div><div id="session-connector" class="notice" style="display:none"><strong>Customer API session</strong><div class="form-row" style="margin-bottom:10px"><label for="session-secret">Session secret</label><input id="session-secret" type="password" autocomplete="new-password" placeholder="Not saved; required for API mode"></div><button class="btn" id="session-connect" type="button">Connect securely for this tab</button></div>
+          <div class="notice">Privacy boundary: this page does not keep a generation history. The connector secret is accepted for the current browser session only and is never saved to local storage.</div>
+          <div class="actions"><button class="btn btn-primary" id="generate">Generate barcode</button><button class="btn" id="clear">Clear</button></div>
+          <div class="status" id="status" role="status" aria-live="polite"></div>
+        </div>
+        <div class="panel">
+          <div class="inline" style="justify-content:space-between"><div><p class="eyebrow">Output</p><h2>Preview</h2></div><span class="pill" id="output-format">Waiting</span></div>
+          <div class="preview" id="preview"><p class="helper">Your barcode preview will appear here.</p></div>
+          <div class="actions"><button class="btn" id="download-svg" disabled>Download SVG</button><button class="btn" id="download-png" disabled>Download PNG</button></div>
+        </div>
+      </section>
+      <section class="grid grid-3" style="margin-top:18px">
+        <div class="stat"><span class="helper">Private by default</span><strong>0 records</strong><span class="helper">No barcode history or database.</span></div>
+        <div class="stat"><span class="helper">Flexible connection</span><strong>BYO API</strong><span class="helper">Bearer, API key, basic, or no auth.</span></div>
+        <div class="stat"><span class="helper">Formats included</span><strong>3 formats</strong><span class="helper">Code 39, EAN-13, and UPC-A.</span></div>
+      </section>
+    </main>
+    <footer class="footer">NexusBarcode is an isolated add-on folder. It does not alter or depend on the legacy NexusLeads runtime.</footer>
+  </div>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

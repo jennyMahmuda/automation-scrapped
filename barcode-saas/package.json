@@ -1,0 +1,7 @@
+{
+  "name": "nexusbarcode-isolated-saas-addon",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Standalone browser-first barcode generator and customer API connector."
+}
