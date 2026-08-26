@@ -2,7 +2,7 @@
 
 **সার্বিক অবস্থা:** `CRITICAL`  
 **Health score:** `75/100`  
-**রিপোর্ট সময়:** `2026-08-26 00:03 UTC`  
+**রিপোর্ট সময়:** `2026-08-26 00:21 UTC`  
 **Website checked:** `https://leads.sayadbayezid.com/`  
 **API checked:** `https://nexusleads-api.mahmudajenny6.workers.dev`
 
