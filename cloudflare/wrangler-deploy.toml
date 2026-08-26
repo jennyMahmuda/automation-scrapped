@@ -11,3 +11,6 @@ id = "171157a1402d42318af07583a87be227"
 binding = "NEXUS_DB"
 database_name = "nexusleads_users"
 database_id = "4b3c6dfe-1b95-42be-a6ea-5a8c4f45d225"
+
+[vars]
+ALLOWED_ORIGINS = "https://jennymahmuda.github.io,http://localhost:5173,http://localhost:8787,https://leads.sayadbayezid.com"
