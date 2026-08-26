@@ -2,7 +2,7 @@
 
 **সার্বিক অবস্থা:** `CRITICAL`  
 **Health score:** `0/100`  
-**রিপোর্ট সময়:** `2026-08-25 23:58 UTC`  
+**রিপোর্ট সময়:** `2026-08-26 00:00 UTC`  
 **Website checked:** `https://leads.sayadbayezid.com/`  
 **API checked:** `https://nexusleads-api.mahmudajenny6.workers.dev`
 
@@ -12,8 +12,8 @@
 
 | Check | ফলাফল | সহজ ব্যাখ্যা |
 |---|---|---|
-| `signup` | `BLOCKED` | The browser could not read the API response; likely CORS. |
-| `login` | `BLOCKED` | The browser could not read the API response; likely CORS. |
+| `signup` | `BLOCKED` | Browser could not read the API response; likely CORS. |
+| `login` | `BLOCKED` | Browser could not read the API response; likely CORS. |
 
 **গুরুত্বপূর্ণ:** Doctor account তৈরি করে না এবং কোনো real password ব্যবহার করে না। Signup-এর জন্য invalid email/short password এবং login-এর জন্য fake credentials পাঠানো হয়; এর উদ্দেশ্য শুধু browser-to-API connection ও CORS পরীক্ষা করা।
 
@@ -29,13 +29,8 @@
 | 6. `HIGH` | The browser printed an error | `frontend/index.html or frontend/app.js` | `Not established` | **কারণ:** Failed to load resource: net::ERR_FAILED<br>**করণীয়:** Open the browser console message and fix the referenced JavaScript or network request. |
 | 7. `HIGH` | The browser printed an error | `frontend/index.html or frontend/app.js` | `Not established` | **কারণ:** Access to fetch at 'https://nexusleads-api.mahmudajenny6.workers.dev/api/auth/login' from origin 'https://leads.sayadbayezid.com' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource.<br>**করণীয়:** Open the browser console message and fix the referenced JavaScript or network request. |
 | 8. `HIGH` | The browser printed an error | `frontend/index.html or frontend/app.js` | `Not established` | **কারণ:** Failed to load resource: net::ERR_FAILED<br>**করণীয়:** Open the browser console message and fix the referenced JavaScript or network request. |
-| 9. `HIGH` | A browser request was blocked or failed | `frontend/app.js` | `61-67` | **কারণ:** GET https://nexusleads-api.mahmudajenny6.workers.dev/api/usage Browser reason: {'errorText': 'net::ERR_FAILED'}<br>**করণীয়:** The frontend sends API requests through this helper; inspect the matching route in cloudflare/worker.js. |
-| 10. `HIGH` | A browser request was blocked or failed | `frontend/app.js` | `61-67` | **কারণ:** GET https://nexusleads-api.mahmudajenny6.workers.dev/api/reviews Browser reason: {'errorText': 'net::ERR_FAILED'}<br>**করণীয়:** The frontend sends API requests through this helper; inspect the matching route in cloudflare/worker.js. |
-| 11. `HIGH` | A browser request was blocked or failed | `Not established` | `Not established` | **কারণ:** POST https://www.google-analytics.com/g/collect?v=2&tid=G-7FPD269E1J&gtm=45je68o1v9261120831za200zd9261120831&_p=1787702334277&gcd=13l3l3l3l1l1&npa=0&dma=0&are=1&cid=1069804133.1787702335&frm=0&ngs=1&pscdl=noapi&rcb=14&sr=1280x720&uaa=x86&uab=64&uafvl=Not%253DA%253FBrand%3B99.0.0.0%7CHeadlessChrome%3B151.0.7922.34%7CChromium%3B151.0.7922.34&uam=&uamb=0&uap=Linux&uapv=&uaw=0&ul=en-us&_s=1&tag_exp=115938465~115938468~118897920~118897930~119367802~119367810~120213116~120385422&sid=1787702334&sct=1&seg=0&dl=https%3A%2F%2Fleads.sayadbayezid.com%2F&dt=NexusLeads%20-%20AI-Powered%20B2B%20Lead%20Scraper%20%26%20Verifier&en=page_view&_fv=1&_nsi=1&_ss=1&_ee=1&ep.anonymize_ip=true&tfd=656 Browser reason: {'errorText': 'net::ERR_ABORTED'}<br>**করণীয়:** The failure was observed in the browser, but no unique source line can be proven from this evidence. |
-| 12. `HIGH` | A browser request was blocked or failed | `frontend/app.js` | `313-324` | **কারণ:** POST https://nexusleads-api.mahmudajenny6.workers.dev/api/auth/signup Browser reason: {'errorText': 'net::ERR_FAILED'}<br>**করণীয়:** The frontend sends the signup request here. Also check cloudflare/worker.js:391-408 for the backend handler. |
-| 13. `HIGH` | A browser request was blocked or failed | `frontend/app.js` | `313-324` | **কারণ:** POST https://nexusleads-api.mahmudajenny6.workers.dev/api/auth/login Browser reason: {'errorText': 'net::ERR_FAILED'}<br>**করণীয়:** The frontend sends the login request here. Also check cloudflare/worker.js:411-424 for the backend handler. |
-| 14. `CRITICAL` | Signup is blocked in the browser | `cloudflare/wrangler.toml` | `21` | **কারণ:** The browser could not receive a normal response from /api/auth/signup. This usually means the custom frontend origin is missing from the Worker CORS allowlist.<br>**করণীয়:** Add https://leads.sayadbayezid.com to ALLOWED_ORIGINS and deploy the Worker. The CORS logic is in cloudflare/worker.js:573-589. |
-| 15. `CRITICAL` | Login is blocked in the browser | `cloudflare/wrangler.toml` | `21` | **কারণ:** The browser could not receive a normal response from /api/auth/login. This usually means the custom frontend origin is missing from the Worker CORS allowlist.<br>**করণীয়:** Add https://leads.sayadbayezid.com to ALLOWED_ORIGINS and deploy the Worker. The CORS logic is in cloudflare/worker.js:573-589. |
+| 9. `CRITICAL` | The browser cannot reach the API | `cloudflare/wrangler.toml` | `21` | **কারণ:** 4 API request(s) failed in the browser. Examples: GET https://nexusleads-api.mahmudajenny6.workers.dev/api/usage; GET https://nexusleads-api.mahmudajenny6.workers.dev/api/reviews; POST https://nexusleads-api.mahmudajenny6.workers.dev/api/auth/signup. This is consistent with a cross-origin/CORS problem from the custom domain.<br>**করণীয়:** Add https://leads.sayadbayezid.com to ALLOWED_ORIGINS, deploy the Worker, then run Doctor again. The CORS code is in cloudflare/worker.js:573-589. |
+| 10. `CRITICAL` | Login and signup are blocked by the browser | `cloudflare/wrangler.toml` | `21` | **কারণ:** The browser could not receive a normal response from the auth endpoints. Because the live custom domain is calling the Worker API, the most likely cause is that the custom frontend origin is missing from the Worker CORS allowlist.<br>**করণীয়:** Change ALLOWED_ORIGINS to include https://leads.sayadbayezid.com, deploy the Worker, and run Doctor again. The CORS code is in cloudflare/worker.js:573-589. Do not change frontend/app.js first. |
 
 ## Source reference
 
