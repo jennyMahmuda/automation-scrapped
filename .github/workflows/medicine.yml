@@ -1,0 +1,205 @@
+name: NexusLeads Medicine — Safe Auto-Fix and Docs Sync
+
+on:
+  workflow_run:
+    workflows: ["NexusLeads Full-Stack Doctor"]
+    types: [completed]
+  workflow_dispatch:
+
+# Safety contract:
+# 1. This workflow never prints, stores, copies, or commits secret values.
+# 2. It never changes passwords, databases, provider keys, or user data.
+# 3. It changes only the exact, reversible CORS allowlist entry below when
+#    doctor-report/latest.md proves that the custom-domain auth request is
+#    blocked by CORS.
+# 4. Every source change is committed so Git history is the rollback point.
+# 5. Documentation sync is skipped safely when DOCS_REPO_TOKEN is not set.
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: nexusleads-medicine-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_FRONTEND_URL: https://leads.sayadbayezid.com
+  APP_REPOSITORY: jennyMahmuda/automation-scrapped
+  DOCS_REPOSITORY: jennyMahmuda/Smartgen-Nexuses-Lead-Collector
+  DOCS_REPO_TOKEN: ${{ secrets.DOCS_REPO_TOKEN }}
+
+jobs:
+  medicine:
+    name: Safe automatic repair and documentation sync
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout application repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Read Doctor conclusion without exposing raw diagnostics
+        id: doctor
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPORT="doctor-report/latest.md"
+          if [ ! -s "$REPORT" ]; then
+            echo "No readable Doctor report is available; no automatic repair will run."
+            echo "safe_to_fix=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if grep -Fq "Login ও নতুন account blocked: CORS সমস্যা" "$REPORT" \
+            && grep -Fq 'cloudflare/wrangler.toml' "$REPORT" \
+            && grep -Fq '`21`' "$REPORT" \
+            && grep -Fq 'https://leads.sayadbayezid.com' "$REPORT"; then
+            echo "Doctor proved the custom-domain CORS issue."
+            echo "safe_to_fix=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Doctor did not prove a medicine rule that is safe to apply."
+            echo "safe_to_fix=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Apply the one safe CORS repair
+        id: repair
+        if: steps.doctor.outputs.safe_to_fix == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          CONFIG="cloudflare/wrangler.toml"
+          python3 - "$CONFIG" "$APP_FRONTEND_URL" <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+
+          config = Path(sys.argv[1])
+          frontend = sys.argv[2]
+          text = config.read_text()
+          if frontend in text:
+              print("The production frontend origin is already present; no source change needed.")
+              raise SystemExit(0)
+
+          match = re.search(r'(?m)^(ALLOWED_ORIGINS\s*=\s*")([^"]*)(")$', text)
+          if not match:
+              raise SystemExit("ALLOWED_ORIGINS was not found in the expected safe format; refusing to edit.")
+
+          origins = [item.strip() for item in match.group(2).split(",") if item.strip()]
+          origins.append(frontend)
+          replacement = match.group(1) + ",".join(dict.fromkeys(origins)) + match.group(3)
+          config.write_text(text[:match.start()] + replacement + text[match.end():])
+          print("Added the production frontend origin to ALLOWED_ORIGINS.")
+          PY
+          echo "repair_applied=true" >> "$GITHUB_OUTPUT"
+
+      - name: Commit only the safe application repair
+        if: steps.repair.outputs.repair_applied == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "NexusLeads Medicine"
+          git config user.email "medicine@noreply.github.com"
+          git add cloudflare/wrangler.toml
+          if git diff --cached --quiet; then
+            echo "No application change to commit."
+            exit 0
+          fi
+          git commit -m "fix: allow production frontend origin for API CORS"
+          git push origin HEAD:main
+
+      - name: Sync live URL and changelog to documentation repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${DOCS_REPO_TOKEN:-}" ]; then
+            echo "::warning::DOCS_REPO_TOKEN is not configured; documentation sync was skipped safely."
+            exit 0
+          fi
+
+          export GIT_ASKPASS="$RUNNER_TEMP/docs-askpass.sh"
+          cat > "$GIT_ASKPASS" <<'ASKPASS'
+          #!/bin/sh
+          case "$1" in
+            *Username*) printf '%s' 'x-access-token' ;;
+            *Password*) printf '%s' "$DOCS_REPO_TOKEN" ;;
+          esac
+          ASKPASS
+          chmod 700 "$GIT_ASKPASS"
+          export GIT_TERMINAL_PROMPT=0
+
+          rm -rf "$RUNNER_TEMP/docs-repository"
+          git clone --depth 1 "https://github.com/${DOCS_REPOSITORY}.git" "$RUNNER_TEMP/docs-repository" >/dev/null
+          DOCS_DIR="$RUNNER_TEMP/docs-repository"
+
+          python3 - "$DOCS_DIR" "$APP_FRONTEND_URL" "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" "${{ steps.repair.outputs.repair_applied || 'false' }}" <<'PY'
+          import sys
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          docs_dir = Path(sys.argv[1])
+          frontend = sys.argv[2]
+          run_url = sys.argv[3]
+          repaired = sys.argv[4] == "true"
+
+          index = docs_dir / "docs/index.md"
+          index_text = index.read_text()
+          live_line = f"The live NexusLeads dashboard is available at [{frontend}/]({frontend}/)."
+          if live_line not in index_text:
+              anchor = "The platform exposes a Cloudflare Worker API at `https://nexusleads-api.mahmudajenny6.workers.dev`."
+              index_text = index_text.replace(anchor, anchor + " " + live_line, 1)
+              index.write_text(index_text)
+
+          smartgen = docs_dir / "smartgen.yml"
+          smartgen_text = smartgen.read_text()
+          if "dashboard_url:" not in smartgen_text:
+              marker = "  api_base_url: https://nexusleads-api.mahmudajenny6.workers.dev\n"
+              smartgen_text = smartgen_text.replace(marker, marker + f"  dashboard_url: {frontend}/\n", 1)
+              smartgen.write_text(smartgen_text)
+
+          changelog = docs_dir / "docs/reference/changelog.md"
+          changelog_text = changelog.read_text()
+          today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+          marker = f"## {today} — NexusLeads automated Doctor update"
+          if marker not in changelog_text:
+              status = "A safe CORS allowlist repair was applied in the application repository." if repaired else "Doctor completed; no safe automatic source repair was applied."
+              entry = (
+                  f"{marker}\n\n"
+                  f"The live dashboard is now documented as `{frontend}/`. {status} "
+                  f"Secrets and user data were not copied into documentation. [View the run]({run_url}).\n\n"
+              )
+              changelog_text = changelog_text.replace("## Unreleased\n\n", "## Unreleased\n\n" + entry, 1)
+              changelog.write_text(changelog_text)
+          PY
+
+          cd "$DOCS_DIR"
+          git config user.name "NexusLeads Medicine"
+          git config user.email "medicine@noreply.github.com"
+          git add docs/index.md smartgen.yml docs/reference/changelog.md
+          if git diff --cached --quiet; then
+            echo "Documentation is already synchronized."
+            exit 0
+          fi
+          git commit -m "docs: sync NexusLeads live URL and Doctor update"
+          git push origin HEAD:main
+
+      - name: Publish safe medicine summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## NexusLeads Medicine"
+            echo
+            echo "This run applies only evidence-backed, reversible changes. Secret values are never printed or committed."
+            echo
+            if [ "${{ steps.repair.outputs.repair_applied || 'false' }}" = "true" ]; then
+              echo "**Repair applied:** the production frontend origin was added to the API CORS allowlist."
+              echo "**Next automatic step:** the existing backend deployment workflow will deploy the Worker after the commit."
+            else
+              echo "**Repair applied:** none; no safe proven rule matched."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
