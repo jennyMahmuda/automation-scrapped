@@ -72,28 +72,42 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          CONFIG="cloudflare/wrangler.toml"
-          python3 - "$CONFIG" "$APP_FRONTEND_URL" <<'PY'
+          python3 - "cloudflare/wrangler.toml" "cloudflare/wrangler-deploy.toml" "$APP_FRONTEND_URL" <<'PY'
           import re
           import sys
           from pathlib import Path
 
-          config = Path(sys.argv[1])
-          frontend = sys.argv[2]
-          text = config.read_text()
-          if frontend in text:
-              print("The production frontend origin is already present; no source change needed.")
-              raise SystemExit(0)
+          frontend = sys.argv[3]
+          inspected_config = Path(sys.argv[1])
+          deploy_config = Path(sys.argv[2])
 
-          match = re.search(r'(?m)^(ALLOWED_ORIGINS\s*=\s*")([^"]*)(")$', text)
-          if not match:
-              raise SystemExit("ALLOWED_ORIGINS was not found in the expected safe format; refusing to edit.")
+          # The first file is inspected by Doctor and has an existing vars entry.
+          inspected_text = inspected_config.read_text()
+          if frontend not in inspected_text:
+              match = re.search(r'(?m)^(ALLOWED_ORIGINS\s*=\s*")([^"]*)(")$', inspected_text)
+              if not match:
+                  raise SystemExit("ALLOWED_ORIGINS was not found in wrangler.toml; refusing to edit.")
+              origins = [item.strip() for item in match.group(2).split(",") if item.strip()]
+              origins.append(frontend)
+              replacement = match.group(1) + ",".join(dict.fromkeys(origins)) + match.group(3)
+              inspected_config.write_text(inspected_text[:match.start()] + replacement + inspected_text[match.end():])
 
-          origins = [item.strip() for item in match.group(2).split(",") if item.strip()]
-          origins.append(frontend)
-          replacement = match.group(1) + ",".join(dict.fromkeys(origins)) + match.group(3)
-          config.write_text(text[:match.start()] + replacement + text[match.end():])
-          print("Added the production frontend origin to ALLOWED_ORIGINS.")
+          # deploy-backend.yml deploys with wrangler-deploy.toml, so that file
+          # must carry the same non-secret CORS variable too.
+          deploy_text = deploy_config.read_text()
+          if frontend not in deploy_text:
+              deploy_match = re.search(r'(?m)^(ALLOWED_ORIGINS\s*=\s*")([^"]*)(")$', deploy_text)
+              if deploy_match:
+                  origins = [item.strip() for item in deploy_match.group(2).split(",") if item.strip()]
+                  origins.append(frontend)
+                  replacement = deploy_match.group(1) + ",".join(dict.fromkeys(origins)) + deploy_match.group(3)
+                  deploy_text = deploy_text[:deploy_match.start()] + replacement + deploy_text[deploy_match.end():]
+              else:
+                  separator = "" if deploy_text.endswith("\n") else "\n"
+                  deploy_text += separator + "\n[vars]\nALLOWED_ORIGINS = \"https://jennymahmuda.github.io,http://localhost:5173,http://localhost:8787," + frontend + "\"\n"
+              deploy_config.write_text(deploy_text)
+
+          print("The production frontend origin is present in both Wrangler configurations.")
           PY
           echo "repair_applied=true" >> "$GITHUB_OUTPUT"
 
