@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NexusBarcode API Docs</title>
+  <link rel="stylesheet" href="../styles.css">
+  <style>
+    .docs-nav { display:flex; flex-wrap:wrap; gap:8px; margin:22px 0 34px; }
+    .docs-nav a { text-decoration:none; color:#b9c6d8; border:1px solid var(--line); padding:8px 11px; border-radius:10px; font-size:12px; }
+    pre { overflow:auto; padding:16px; border:1px solid var(--line); background:#030912; border-radius:14px; color:#b8f8e5; line-height:1.6; font-size:13px; }
+    code { color:var(--accent); }
+    .docs-copy { color:var(--muted); line-height:1.75; }
+  </style>
+</head>
+<body><div class="shell">
+  <nav class="nav"><a class="brand" href="../"><span class="brand-mark">▥</span><span>NexusBarcode</span></a><div class="nav-links"><a class="btn" href="../">Generator</a><a class="btn" href="../admin/">Admin dashboard</a></div></nav>
+  <main>
+    <section class="hero"><p class="eyebrow">Developer documentation</p><h1>Connect barcode generation to your <span class="gradient-text">commerce admin.</span></h1><p>Use the customer-owned API contract to connect products, SKUs, orders, inventory, warehouse labels, or fulfillment actions to barcode generation.</p><div class="docs-nav"><a href="#quick-start">Quick start</a><a href="#request">Request</a><a href="#response">Response</a><a href="#security">Security</a><a href="./api.md">Full API reference</a></div></section>
+    <section class="grid grid-2">
+      <article class="panel" id="quick-start"><p class="eyebrow">01 / Quick start</p><h2>One endpoint</h2><p class="docs-copy">Configure your customer server as the API base URL. NexusBarcode sends the request to <code>/api/barcode/generate</code>. Keep your long-lived token on your own server whenever possible.</p><pre>POST https://store-api.example.com/api/barcode/generate
+Authorization: Bearer &lt;your-server-token&gt;
+Content-Type: application/json</pre></article>
+      <article class="panel" id="request"><p class="eyebrow">02 / Request</p><h2>Send format and value</h2><p class="docs-copy">The request body is intentionally small. Your server should validate the format and value again before generating or saving anything.</p><pre>{
+  "format": "EAN13",
+  "value": "400638133393"
+}</pre></article>
+      <article class="panel" id="response"><p class="eyebrow">03 / Response</p><h2>Return a renderable result</h2><p class="docs-copy">Return one of <code>svg</code>, <code>image_url</code>, or <code>png_base64</code>. SVG is preferred for crisp previews and printing.</p><pre>{
+  "success": true,
+  "format": "EAN-13",
+  "value": "4006381333931",
+  "svg": "&lt;svg ...&gt;...&lt;/svg&gt;"
+}</pre></article>
+      <article class="panel" id="security"><p class="eyebrow">04 / Security</p><h2>Protect the admin workflow</h2><p class="docs-copy">Use HTTPS, authenticate the operator, restrict CORS, redact credentials from logs, validate inputs server-side, and define a retention policy for barcode values and generated images.</p><div class="notice">The NexusBarcode browser module does not store barcode history or API secrets. In customer API mode, your server controls authentication, authorization, logs, and retention.</div></article>
+    </section>
+    <section class="panel" style="margin-top:18px"><p class="eyebrow">Complete reference</p><h2>Read the full integration guide</h2><p class="docs-copy">The full reference includes Node.js and browser dashboard examples, authentication modes, schema rules, error status mapping, cURL testing, CORS headers, privacy guidance, idempotency, retries, and a production readiness checklist.</p><a class="btn btn-primary" href="./api.md">Open full API reference</a></section>
+  </main><footer class="footer">NexusBarcode API documentation · Customer-owned server integration · No platform data storage</footer>
+</div></body></html>
