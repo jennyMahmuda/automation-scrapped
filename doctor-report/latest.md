@@ -1,8 +1,8 @@
 # NexusLeads Doctor — সহজ রিপোর্ট
 
 **সার্বিক অবস্থা:** `CRITICAL`  
-**Health score:** `0/100`  
-**রিপোর্ট সময়:** `2026-08-26 00:00 UTC`  
+**Health score:** `75/100`  
+**রিপোর্ট সময়:** `2026-08-26 00:03 UTC`  
 **Website checked:** `https://leads.sayadbayezid.com/`  
 **API checked:** `https://nexusleads-api.mahmudajenny6.workers.dev`
 
@@ -12,8 +12,8 @@
 
 | Check | ফলাফল | সহজ ব্যাখ্যা |
 |---|---|---|
-| `signup` | `BLOCKED` | Browser could not read the API response; likely CORS. |
-| `login` | `BLOCKED` | Browser could not read the API response; likely CORS. |
+| `signup` | `BLOCKED` | Browser API response পড়তে পারেনি; CORS সমস্যা হওয়ার সম্ভাবনা বেশি. |
+| `login` | `BLOCKED` | Browser API response পড়তে পারেনি; CORS সমস্যা হওয়ার সম্ভাবনা বেশি. |
 
 **গুরুত্বপূর্ণ:** Doctor account তৈরি করে না এবং কোনো real password ব্যবহার করে না। Signup-এর জন্য invalid email/short password এবং login-এর জন্য fake credentials পাঠানো হয়; এর উদ্দেশ্য শুধু browser-to-API connection ও CORS পরীক্ষা করা।
 
@@ -21,16 +21,7 @@
 
 | অগ্রাধিকার | সমস্যা | কোন file | কোন line | কেন হচ্ছে / কী করবেন |
 |---|---|---|---|---|
-| 1. `HIGH` | The browser printed an error | `frontend/index.html or frontend/app.js` | `Not established` | **কারণ:** Access to fetch at 'https://nexusleads-api.mahmudajenny6.workers.dev/api/usage' from origin 'https://leads.sayadbayezid.com' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource.<br>**করণীয়:** Open the browser console message and fix the referenced JavaScript or network request. |
-| 2. `HIGH` | The browser printed an error | `frontend/index.html or frontend/app.js` | `Not established` | **কারণ:** Failed to load resource: net::ERR_FAILED<br>**করণীয়:** Open the browser console message and fix the referenced JavaScript or network request. |
-| 3. `HIGH` | The browser printed an error | `frontend/index.html or frontend/app.js` | `Not established` | **কারণ:** Access to fetch at 'https://nexusleads-api.mahmudajenny6.workers.dev/api/reviews' from origin 'https://leads.sayadbayezid.com' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.<br>**করণীয়:** Open the browser console message and fix the referenced JavaScript or network request. |
-| 4. `HIGH` | The browser printed an error | `frontend/index.html or frontend/app.js` | `Not established` | **কারণ:** Failed to load resource: net::ERR_FAILED<br>**করণীয়:** Open the browser console message and fix the referenced JavaScript or network request. |
-| 5. `HIGH` | The browser printed an error | `frontend/index.html or frontend/app.js` | `Not established` | **কারণ:** Access to fetch at 'https://nexusleads-api.mahmudajenny6.workers.dev/api/auth/signup' from origin 'https://leads.sayadbayezid.com' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource.<br>**করণীয়:** Open the browser console message and fix the referenced JavaScript or network request. |
-| 6. `HIGH` | The browser printed an error | `frontend/index.html or frontend/app.js` | `Not established` | **কারণ:** Failed to load resource: net::ERR_FAILED<br>**করণীয়:** Open the browser console message and fix the referenced JavaScript or network request. |
-| 7. `HIGH` | The browser printed an error | `frontend/index.html or frontend/app.js` | `Not established` | **কারণ:** Access to fetch at 'https://nexusleads-api.mahmudajenny6.workers.dev/api/auth/login' from origin 'https://leads.sayadbayezid.com' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource.<br>**করণীয়:** Open the browser console message and fix the referenced JavaScript or network request. |
-| 8. `HIGH` | The browser printed an error | `frontend/index.html or frontend/app.js` | `Not established` | **কারণ:** Failed to load resource: net::ERR_FAILED<br>**করণীয়:** Open the browser console message and fix the referenced JavaScript or network request. |
-| 9. `CRITICAL` | The browser cannot reach the API | `cloudflare/wrangler.toml` | `21` | **কারণ:** 4 API request(s) failed in the browser. Examples: GET https://nexusleads-api.mahmudajenny6.workers.dev/api/usage; GET https://nexusleads-api.mahmudajenny6.workers.dev/api/reviews; POST https://nexusleads-api.mahmudajenny6.workers.dev/api/auth/signup. This is consistent with a cross-origin/CORS problem from the custom domain.<br>**করণীয়:** Add https://leads.sayadbayezid.com to ALLOWED_ORIGINS, deploy the Worker, then run Doctor again. The CORS code is in cloudflare/worker.js:573-589. |
-| 10. `CRITICAL` | Login and signup are blocked by the browser | `cloudflare/wrangler.toml` | `21` | **কারণ:** The browser could not receive a normal response from the auth endpoints. Because the live custom domain is calling the Worker API, the most likely cause is that the custom frontend origin is missing from the Worker CORS allowlist.<br>**করণীয়:** Change ALLOWED_ORIGINS to include https://leads.sayadbayezid.com, deploy the Worker, and run Doctor again. The CORS code is in cloudflare/worker.js:573-589. Do not change frontend/app.js first. |
+| 1. `CRITICAL` | Login ও নতুন account blocked: CORS সমস্যা | `cloudflare/wrangler.toml` | `21` | **কারণ:** Custom domain থেকে auth API-তে request গেলেও browser response পড়তে পারছে না. সবচেয়ে সম্ভাব্য কারণ হলো Worker CORS allowlist-এ https://leads.sayadbayezid.com নেই.<br>**করণীয়:** প্রথমে cloudflare/wrangler.toml-এর line 21-এ custom domain যোগ করুন, Worker deploy করুন, তারপর Doctor আবার চালান. CORS code আছে cloudflare/worker.js:573-589-এ. frontend/app.js আগে পরিবর্তন করবেন না. |
 
 ## Source reference
 
