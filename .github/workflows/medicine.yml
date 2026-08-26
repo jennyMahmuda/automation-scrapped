@@ -118,7 +118,7 @@ jobs:
           set -euo pipefail
           git config user.name "NexusLeads Medicine"
           git config user.email "medicine@noreply.github.com"
-          git add cloudflare/wrangler.toml
+          git add cloudflare/wrangler.toml cloudflare/wrangler-deploy.toml
           if git diff --cached --quiet; then
             echo "No application change to commit."
             exit 0
