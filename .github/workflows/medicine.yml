@@ -1,4 +1,4 @@
-name: NexusLeads Medicine — Safe Auto-Fix and Docs Sync
+name: NexusLeads Medicine — Safe Auto-Fix
 
 on:
   workflow_run:
@@ -13,7 +13,7 @@ on:
 #    doctor-report/latest.md proves that the custom-domain auth request is
 #    blocked by CORS.
 # 4. Every source change is committed so Git history is the rollback point.
-# 5. Documentation sync is skipped safely when DOCS_REPO_TOKEN is not set.
+# 5. Changelog synchronization is handled by the separate changelog-sync.yml.
 
 permissions:
   contents: write
@@ -25,13 +25,10 @@ concurrency:
 
 env:
   APP_FRONTEND_URL: https://leads.sayadbayezid.com
-  APP_REPOSITORY: jennyMahmuda/automation-scrapped
-  DOCS_REPOSITORY: jennyMahmuda/Smartgen-Nexuses-Lead-Collector
-  DOCS_REPO_TOKEN: ${{ secrets.DOCS_REPO_TOKEN }}
 
 jobs:
   medicine:
-    name: Safe automatic repair and documentation sync
+    name: Safe automatic repair and Worker deployment
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -134,81 +131,6 @@ jobs:
             exit 0
           fi
           git commit -m "fix: allow production frontend origin for API CORS"
-          git push origin HEAD:main
-
-      - name: Sync live URL and changelog to documentation repository
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ -z "${DOCS_REPO_TOKEN:-}" ]; then
-            echo "::warning::DOCS_REPO_TOKEN is not configured; documentation sync was skipped safely."
-            exit 0
-          fi
-
-          export GIT_ASKPASS="$RUNNER_TEMP/docs-askpass.sh"
-          cat > "$GIT_ASKPASS" <<'ASKPASS'
-          #!/bin/sh
-          case "$1" in
-            *Username*) printf '%s' 'x-access-token' ;;
-            *Password*) printf '%s' "$DOCS_REPO_TOKEN" ;;
-          esac
-          ASKPASS
-          chmod 700 "$GIT_ASKPASS"
-          export GIT_TERMINAL_PROMPT=0
-
-          rm -rf "$RUNNER_TEMP/docs-repository"
-          git clone --depth 1 "https://github.com/${DOCS_REPOSITORY}.git" "$RUNNER_TEMP/docs-repository" >/dev/null
-          DOCS_DIR="$RUNNER_TEMP/docs-repository"
-
-          python3 - "$DOCS_DIR" "$APP_FRONTEND_URL" "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" "${{ steps.repair.outputs.repair_applied || 'false' }}" <<'PY'
-          import sys
-          from datetime import datetime, timezone
-          from pathlib import Path
-
-          docs_dir = Path(sys.argv[1])
-          frontend = sys.argv[2]
-          run_url = sys.argv[3]
-          repaired = sys.argv[4] == "true"
-
-          index = docs_dir / "docs/index.md"
-          index_text = index.read_text()
-          live_line = f"The live NexusLeads dashboard is available at [{frontend}/]({frontend}/)."
-          if live_line not in index_text:
-              anchor = "The platform exposes a Cloudflare Worker API at `https://nexusleads-api.mahmudajenny6.workers.dev`."
-              index_text = index_text.replace(anchor, anchor + " " + live_line, 1)
-              index.write_text(index_text)
-
-          smartgen = docs_dir / "smartgen.yml"
-          smartgen_text = smartgen.read_text()
-          if "dashboard_url:" not in smartgen_text:
-              marker = "  api_base_url: https://nexusleads-api.mahmudajenny6.workers.dev\n"
-              smartgen_text = smartgen_text.replace(marker, marker + f"  dashboard_url: {frontend}/\n", 1)
-              smartgen.write_text(smartgen_text)
-
-          changelog = docs_dir / "docs/reference/changelog.md"
-          changelog_text = changelog.read_text()
-          today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-          marker = f"## {today} — NexusLeads automated Doctor update"
-          if marker not in changelog_text:
-              status = "A safe CORS allowlist repair was applied in the application repository." if repaired else "Doctor completed; no safe automatic source repair was applied."
-              entry = (
-                  f"{marker}\n\n"
-                  f"The live dashboard is now documented as `{frontend}/`. {status} "
-                  f"Secrets and user data were not copied into documentation. [View the run]({run_url}).\n\n"
-              )
-              changelog_text = changelog_text.replace("## Unreleased\n\n", "## Unreleased\n\n" + entry, 1)
-              changelog.write_text(changelog_text)
-          PY
-
-          cd "$DOCS_DIR"
-          git config user.name "NexusLeads Medicine"
-          git config user.email "medicine@noreply.github.com"
-          git add docs/index.md smartgen.yml docs/reference/changelog.md
-          if git diff --cached --quiet; then
-            echo "Documentation is already synchronized."
-            exit 0
-          fi
-          git commit -m "docs: sync NexusLeads live URL and Doctor update"
           git push origin HEAD:main
 
       - name: Publish safe medicine summary

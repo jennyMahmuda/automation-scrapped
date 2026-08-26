@@ -1,0 +1,197 @@
+name: Sync selected feature updates to SmartGen Docs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      commit_id:
+        description: "Full or short commit SHA to document"
+        required: true
+        type: string
+      update_type:
+        description: "Type of selected update"
+        required: true
+        type: choice
+        options:
+          - feature
+          - improve
+          - fix
+          - release
+      summary:
+        description: "Optional short note; never include secrets"
+        required: false
+        type: string
+
+# This workflow is intentionally not run for every application commit.
+# Automatic push mode requires [feature], [improve], or [changelog] in the
+# commit subject. Manual mode accepts one explicit commit_id.
+# DOCS_REPO_TOKEN is used only as an Actions secret and is never printed.
+
+permissions:
+  contents: read
+
+concurrency:
+  group: selected-changelog-sync
+  cancel-in-progress: false
+
+env:
+  DOCS_REPOSITORY: jennyMahmuda/Smartgen-Nexuses-Lead-Collector
+  DOCS_REPO_TOKEN: ${{ secrets.DOCS_REPO_TOKEN }}
+
+jobs:
+  sync:
+    name: Publish one selected update to documentation
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.head_commit.message, '[feature]') ||
+      contains(github.event.head_commit.message, '[improve]') ||
+      contains(github.event.head_commit.message, '[changelog]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Validate documentation token presence
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${DOCS_REPO_TOKEN:-}" ]; then
+            echo "::error::DOCS_REPO_TOKEN is missing. Add it to automation-scrapped repository Actions secrets."
+            exit 1
+          fi
+
+      - name: Checkout the application commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Resolve the selected commit and safe changelog metadata
+        id: selected
+        shell: bash
+        env:
+          MANUAL_COMMIT_ID: ${{ inputs.commit_id }}
+          MANUAL_UPDATE_TYPE: ${{ inputs.update_type }}
+          MANUAL_SUMMARY: ${{ inputs.summary }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            COMMIT_ID="$MANUAL_COMMIT_ID"
+            UPDATE_TYPE="$MANUAL_UPDATE_TYPE"
+            USER_SUMMARY="$MANUAL_SUMMARY"
+          else
+            COMMIT_ID="$GITHUB_SHA"
+            SUBJECT="$(git log -1 --format=%s "$GITHUB_SHA")"
+            case "$SUBJECT" in
+              *"[feature]"*) UPDATE_TYPE="feature" ;;
+              *"[improve]"*) UPDATE_TYPE="improve" ;;
+              *"[changelog]"*) UPDATE_TYPE="update" ;;
+              *) UPDATE_TYPE="update" ;;
+            esac
+            USER_SUMMARY=""
+          fi
+
+          if ! git cat-file -e "${COMMIT_ID}^{commit}" 2>/dev/null; then
+            echo "::error::The selected commit was not found in the application repository: $COMMIT_ID"
+            exit 1
+          fi
+
+          FULL_SHA="$(git rev-parse "$COMMIT_ID")"
+          SUBJECT="$(git log -1 --format=%s "$FULL_SHA")"
+          # Keep changelog content one line and bounded. Redact common token
+          # prefixes in case someone accidentally typed one into a note.
+          SAFE_SUBJECT="$(printf '%s' "$SUBJECT" | tr '\r\n' '  ' | cut -c1-180 | sed -E 's/(ghp_|github_pat_|sk-[A-Za-z0-9_-]+|r8_[A-Za-z0-9_-]+)/[REDACTED]/g')"
+          SAFE_SUMMARY="$(printf '%s' "$USER_SUMMARY" | tr '\r\n' '  ' | cut -c1-240 | sed -E 's/(ghp_|github_pat_|sk-[A-Za-z0-9_-]+|r8_[A-Za-z0-9_-]+)/[REDACTED]/g')"
+
+          printf 'commit_sha=%s\n' "$FULL_SHA" >> "$GITHUB_OUTPUT"
+          printf 'short_sha=%s\n' "${FULL_SHA:0:7}" >> "$GITHUB_OUTPUT"
+          printf 'update_type=%s\n' "$UPDATE_TYPE" >> "$GITHUB_OUTPUT"
+          {
+            echo 'subject<<EOF'
+            printf '%s\n' "$SAFE_SUBJECT"
+            echo 'EOF'
+            echo 'summary<<EOF'
+            printf '%s\n' "$SAFE_SUMMARY"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Clone documentation repository without exposing the token
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GIT_TERMINAL_PROMPT=0
+          export GIT_ASKPASS="$RUNNER_TEMP/docs-askpass.sh"
+          cat > "$GIT_ASKPASS" <<'ASKPASS'
+          #!/bin/sh
+          case "$1" in
+            *Username*) printf '%s' 'x-access-token' ;;
+            *Password*) printf '%s' "$DOCS_REPO_TOKEN" ;;
+          esac
+          ASKPASS
+          chmod 700 "$GIT_ASKPASS"
+          rm -rf "$RUNNER_TEMP/docs-repository"
+          git clone --depth 1 "https://github.com/${DOCS_REPOSITORY}.git" "$RUNNER_TEMP/docs-repository" >/dev/null
+
+      - name: Add the selected update to the documentation changelog
+        shell: bash
+        env:
+          SELECTED_SHA: ${{ steps.selected.outputs.commit_sha }}
+          SELECTED_SHORT_SHA: ${{ steps.selected.outputs.short_sha }}
+          SELECTED_TYPE: ${{ steps.selected.outputs.update_type }}
+          SELECTED_SUBJECT: ${{ steps.selected.outputs.subject }}
+          SELECTED_SUMMARY: ${{ steps.selected.outputs.summary }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          SOURCE_SERVER: ${{ github.server_url }}
+        run: |
+          set -euo pipefail
+          export DOCS_DIR="$RUNNER_TEMP/docs-repository"
+          python3 - <<'PY'
+          import os
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          docs = Path(os.environ["DOCS_DIR"])
+          changelog = docs / "docs/reference/changelog.md"
+          text = changelog.read_text()
+          date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+          marker = f"## {date} — Selected {os.environ['SELECTED_TYPE']} update ({os.environ['SELECTED_SHORT_SHA']})"
+          if marker in text:
+              print("This selected commit is already documented; no duplicate entry will be added.")
+              raise SystemExit(0)
+
+          subject = os.environ["SELECTED_SUBJECT"]
+          summary = os.environ["SELECTED_SUMMARY"]
+          source = f"{os.environ['SOURCE_SERVER']}/{os.environ['SOURCE_REPOSITORY']}/commit/{os.environ['SELECTED_SHA']}"
+          note = f" {summary}" if summary else ""
+          entry = (
+              f"{marker}\n\n"
+              f"**Update:** `{subject}`.{note} "
+              f"[View application commit]({source}). Secrets and user data are not included in this changelog entry.\n\n"
+          )
+          if "## Unreleased\n\n" not in text:
+              raise SystemExit("docs/reference/changelog.md does not contain the expected Unreleased heading; refusing to edit.")
+          changelog.write_text(text.replace("## Unreleased\n\n", "## Unreleased\n\n" + entry, 1))
+          PY
+
+          cd "$DOCS_DIR"
+          git config user.name "NexusLeads Changelog Bot"
+          git config user.email "changelog@noreply.github.com"
+          git add docs/reference/changelog.md
+          if git diff --cached --quiet; then
+            echo "No changelog change required."
+            exit 0
+          fi
+          git commit -m "docs: record selected ${SELECTED_TYPE} update ${SELECTED_SHORT_SHA}"
+          git push origin HEAD:main
+
+      - name: Publish safe sync summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Selected changelog sync"
+            echo
+            echo "Only the explicitly selected commit was considered. Ordinary commits are ignored."
+            echo "Secret values are never printed, copied, or committed."
+            echo "Selected commit: ${{ steps.selected.outputs.short_sha || 'not resolved' }}"
+          } >> "$GITHUB_STEP_SUMMARY"
