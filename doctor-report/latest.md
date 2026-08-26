@@ -1,8 +1,8 @@
 # NexusLeads Doctor — সহজ রিপোর্ট
 
-**সার্বিক অবস্থা:** `CRITICAL`  
-**Health score:** `75/100`  
-**রিপোর্ট সময়:** `2026-08-26 00:28 UTC`  
+**সার্বিক অবস্থা:** `DEGRADED`  
+**Health score:** `55/100`  
+**রিপোর্ট সময়:** `2026-08-26 01:19 UTC`  
 **Website checked:** `https://leads.sayadbayezid.com/`  
 **API checked:** `https://nexusleads-api.mahmudajenny6.workers.dev`
 
@@ -12,8 +12,8 @@
 
 | Check | ফলাফল | সহজ ব্যাখ্যা |
 |---|---|---|
-| `signup` | `BLOCKED` | Browser API response পড়তে পারেনি; CORS সমস্যা হওয়ার সম্ভাবনা বেশি. |
-| `login` | `BLOCKED` | Browser API response পড়তে পারেনি; CORS সমস্যা হওয়ার সম্ভাবনা বেশি. |
+| `signup` | `HTTP 400` | Endpoint reachable; the invalid test was handled normally. |
+| `login` | `HTTP 401` | Endpoint reachable; the invalid test was handled normally. |
 
 **গুরুত্বপূর্ণ:** Doctor account তৈরি করে না এবং কোনো real password ব্যবহার করে না। Signup-এর জন্য invalid email/short password এবং login-এর জন্য fake credentials পাঠানো হয়; এর উদ্দেশ্য শুধু browser-to-API connection ও CORS পরীক্ষা করা।
 
@@ -21,7 +21,9 @@
 
 | অগ্রাধিকার | সমস্যা | কোন file | কোন line | কেন হচ্ছে / কী করবেন |
 |---|---|---|---|---|
-| 1. `CRITICAL` | Login ও নতুন account blocked: CORS সমস্যা | `cloudflare/wrangler.toml` | `21` | **কারণ:** Custom domain থেকে auth API-তে request গেলেও browser response পড়তে পারছে না. সবচেয়ে সম্ভাব্য কারণ হলো Worker CORS allowlist-এ https://leads.sayadbayezid.com নেই.<br>**করণীয়:** প্রথমে cloudflare/wrangler.toml-এর line 21-এ custom domain যোগ করুন, Worker deploy করুন, তারপর Doctor আবার চালান. CORS code আছে cloudflare/worker.js:573-589-এ. frontend/app.js আগে পরিবর্তন করবেন না. |
+| 1. `HIGH` | The browser printed an error | `frontend/index.html or frontend/app.js` | `Not established` | **কারণ:** Failed to load resource: the server responded with a status of 401 ()<br>**করণীয়:** Open the browser console message and fix the referenced JavaScript or network request. |
+| 2. `HIGH` | The browser printed an error | `frontend/index.html or frontend/app.js` | `Not established` | **কারণ:** Failed to load resource: the server responded with a status of 400 ()<br>**করণীয়:** Open the browser console message and fix the referenced JavaScript or network request. |
+| 3. `HIGH` | The browser printed an error | `frontend/index.html or frontend/app.js` | `Not established` | **কারণ:** Failed to load resource: the server responded with a status of 401 ()<br>**করণীয়:** Open the browser console message and fix the referenced JavaScript or network request. |
 
 ## Source reference
 
