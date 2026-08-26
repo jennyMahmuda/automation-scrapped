@@ -173,6 +173,17 @@ jobs:
           changelog.write_text(text.replace("## Unreleased\n\n", "## Unreleased\n\n" + entry, 1))
           PY
 
+          export GIT_TERMINAL_PROMPT=0
+          export GIT_ASKPASS="$RUNNER_TEMP/docs-askpass.sh"
+          cat > "$GIT_ASKPASS" <<'ASKPASS'
+          #!/bin/sh
+          case "$1" in
+            *Username*) printf '%s' 'x-access-token' ;;
+            *Password*) printf '%s' "$DOCS_REPO_TOKEN" ;;
+          esac
+          ASKPASS
+          chmod 700 "$GIT_ASKPASS"
+
           cd "$DOCS_DIR"
           git config user.name "NexusLeads Changelog Bot"
           git config user.email "changelog@noreply.github.com"
